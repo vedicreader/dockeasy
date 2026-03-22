@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "dockeasy"
+  site-url: "https://Karthik777.github.io/dockeasy"
+  description: "docker made easy"
+  repo-branch: main
+  repo-url: "https://github.com/Karthik777/dockeasy"

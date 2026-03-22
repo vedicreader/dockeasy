@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dockeasy"
+dynamic = ["version"]
+description = "docker made easy"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Karthik", email = "karthik.rajgopal@hotmail.com"}]
+keywords = ['nbdev', 'docker', 'compose', 'containers', 'podman']
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+    "fastcore>=1.12.30",
+    "keyring>=25.7.0",
+    "python-dotenv>=1.2.2",
+    "notebook",
+]
+
+[project.urls]
+Repository = "https://github.com/Karthik777/dockeasy"
+Documentation = "https://Karthik777.github.io/dockeasy/"
+
+[project.entry-points.nbdev]
+dockeasy = "dockeasy._modidx:d"
+
+[tool.hatch.version]
+path = "dockeasy/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dockeasy"]
+
+[tool.nbdev]
+
+[dependency-groups]
+dev = [
+    "nbdev>=3.0.12",
+]
