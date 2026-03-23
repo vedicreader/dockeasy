@@ -136,16 +136,18 @@ def _compose_cmd():
 	except Exception: return 'docker', 'compose'
 
 def _clean_cfg():
-	'Create a docker config dir with credential helpers stripped'
+	'Create a docker config dir with credential helpers stripped, symlinking contexts and cli-plugins'
 	src = Path(os.environ.get('DOCKER_CONFIG', Path.home()/'.docker'))
 	dst = Path.home()/'.fastops'/'config'
 	cfgf = dst/'config.json'
-	if cfgf.exists(): return str(dst)
-	cfg = src.joinpath('config.json').read_json() if (src/'config.json').exists() else {}
-	cfg.pop('credsStore', None); cfg.pop('credHelpers', None)
-	cfgf.write_json(cfg)
-	ctx_src, ctx_dst = src/'contexts', dst/'contexts'
-	if ctx_src.exists() and not ctx_dst.exists(): ctx_dst.symlink_to(ctx_src)
+	if not cfgf.exists():
+		dst.mkdir(parents=True, exist_ok=True)
+		cfg = src.joinpath('config.json').read_json() if (src/'config.json').exists() else {}
+		cfg.pop('credsStore', None); cfg.pop('credHelpers', None)
+		cfgf.write_json(cfg)
+	for name in ('contexts', 'cli-plugins'):
+		link, target = dst/name, src/name
+		if target.exists() and not link.exists(): link.symlink_to(target)
 	return str(dst)
 
 class Docker(Cli):
@@ -166,10 +168,20 @@ class Docker(Cli):
 
 # %% ../nbs/00_core.ipynb #ae10280a7aae03af
 @patch
-def build(df:Dockerfile, tag:str=None, path:str='.', rm=True, no_creds=False, fn='Dockerfile'):
-    'Build image from Dockerfile. path is the build context directory.'
+def build(df:Dockerfile, tag:str=None, path:str='.', no_creds=False, fn='Dockerfile'):
+    'Build image from Dockerfile via docker compose build (uses daemon BuildKit, no buildx required).'
+    import subprocess, tempfile
     df.save(Path(path) / fn)
-    Docker(no_creds=no_creds).build(str(path).rstrip('/')+'/', t=tag, rm=rm)
+    svc = {'build': {'context': str(Path(path).resolve())}}
+    if tag: svc['image'] = tag
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        f.write(yaml.dump({'services': {'img': svc}})); tmp = f.name
+    try:
+        pre = ['--config', _clean_cfg()] if no_creds else []
+        res = subprocess.run(['docker'] + pre + ['compose', '-f', tmp, 'build'], capture_output=True)
+        if res.returncode: raise IOError((res.stdout + b' ;; ' + res.stderr).decode().strip())
+    finally:
+        Path(tmp).unlink(missing_ok=True)
     return tag
 
 def test(img_or_tag:str, cmd):
@@ -261,11 +273,11 @@ class Compose(L):
 
 # %% ../nbs/00_core.ipynb #f56e4e9f534ac2ca
 @patch
-def inst_uv(self:Dockerfile):
-	'Single-stage uv install: copy uv binary and sync deps'
-	return (self.copy('/uv', '/usr/local/bin/uv', from_='ghcr.io/astral-sh/uv:latest')
-			.copy('pyproject.toml', '.').copy('uv.lock', '.')
-			.run_mount('uv sync --frozen --no-dev', target='/root/.cache/uv'))
+def inst_uv(self:Dockerfile, req=False, wd='/app'):
+	'Single-stage uv install: copy uv binary and sync deps. req=True uses requirements.txt instead of pyproject.toml'
+	self = self.copy('/uv', '/usr/local/bin/uv', from_='ghcr.io/astral-sh/uv:latest')
+	if req: return self.copy('requirements.txt', '.').run('uv pip install --system -r requirements.txt')
+	return self.copy('pyproject.toml', '.').run('uv sync --no-dev').env('PATH', f'{wd}/.venv/bin:$PATH')
 
 @patch
 def with_uv(self:Dockerfile, uv_image, image, workdir):
@@ -284,11 +296,11 @@ def packages(self:Dockerfile, *pkgs):
 
 # %% ../nbs/00_core.ipynb #e17b41b26d006536
 def python_app(port=8000, cmd=None, im='python:3.13-slim', wd='/app', pkgs=None,
-    vols=None, multistage=True, uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm', healthcheck=None):
-    'Python app Dockerfile. multistage=True (default): uv-builder → slim. False: single-stage with uv binary copy.'
+    vols=None, multistage=True, uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm', healthcheck=None, req=False):
+    'Python app Dockerfile. multistage=True (default): uv-builder → slim. False: single-stage with uv binary copy. req=True: use requirements.txt instead of pyproject.toml (forces multistage=False).'
     if multistage:
-        df = Dockerfile().with_uv(uv_image, im, wd).packages(*listify(pkgs)).copy(wd, wd, from_='builder').env('PATH', f'{wd}/.venv/bin:$PATH')
-    else: df = Dockerfile().from_(im).workdir(wd).packages(*listify(pkgs)).inst_uv().copy('.', '.')
+        df = Dockerfile().with_uv(uv_image, im, wd).copy(wd, wd, from_='builder').env('PATH', f'{wd}/.venv/bin:$PATH').packages(*listify(pkgs))
+    else: df = Dockerfile().from_(im).workdir(wd).packages(*listify(pkgs)).inst_uv(req=req, wd=wd).copy('.', '.')
     if vols: df = df.run('mkdir -p ' + ' '.join(listify(vols)))
     if healthcheck: df = df.healthcheck(f'curl -f http://localhost:{port}{healthcheck}', i='30s', t='5s', r='3')
     _cmd = cmd or ['python', 'main.py']
@@ -301,8 +313,8 @@ def fastapi_react(port=8000, node_version='20', frontend_dir='frontend', build_d
     df = (Dockerfile().from_(f'node:{node_version}-slim', as_='frontend')
           .workdir('/build').copy(f'{frontend_dir}/package*.json', '.')
           .run('npm ci').copy(frontend_dir, '.').run('npm run build'))
-    if multistage: df = df.with_uv(uv_image, image, '/app').packages(*listify(pkgs)).copy('/app', '/app', from_='builder').env('PATH', '/app/.venv/bin:$PATH')
-    else: df = df.from_(image).workdir('/app').packages(*listify(pkgs)).inst_uv().copy('.', '.')
+    if multistage: df = df.with_uv(uv_image, image, '/app').copy('/app', '/app', from_='builder').env('PATH', '/app/.venv/bin:$PATH').packages(*listify(pkgs))
+    else: df = df.from_(image).workdir('/app').packages(*listify(pkgs)).inst_uv(wd='/app').copy('.', '.')
     df = df.copy(f'/build/{build_dir}', '/app/static', from_='frontend')
     if healthcheck: df = df.healthcheck(f'curl -f http://localhost:{port}{healthcheck}', i='30s', t='5s', r='3')
     return df.expose(port).cmd(['uvicorn', 'main:app', '--host', '0.0.0.0', f'--port={port}'])
@@ -335,7 +347,7 @@ def node_app(port=3000, node_version='20', cmd=None, build_cmd='npm run build', 
                 .expose(port).cmd(cmd or ['serve', '-s', '.', '-l', str(port)]))
     return df.expose(port).cmd(cmd or ['node', 'index.js'])
 
-fasthtml_app = bind(python_app, port=5001, cmd=['python', 'app.py'])
+fasthtml_app = bind(python_app, port=5001, cmd=['python', 'app.py'], multistage=False)
 
 def detect_app(path='.', multistage=True, **kw):
     'A naive project type detector from path and return the appropriate Dockerfile. for **kw lookup other app builders'
@@ -349,7 +361,8 @@ def detect_app(path='.', multistage=True, **kw):
     if has('package.json') and has_py: return fastapi_react(multistage=multistage, **kw)
     if has('package.json'): return node_app(**kw)
     if pyp and 'python-fasthtml' in read('pyproject.toml'): return fasthtml_app(multistage=multistage, **kw)
-    if has_py: return python_app(multistage=multistage, **kw)
+    if pyp: return python_app(multistage=multistage, **kw)
+    if req: return python_app(multistage=False, req=True, **kw)
     raise ValueError(f'Cannot detect project type in {path!r}')
 
 # %% ../nbs/00_core.ipynb #5f5a4229dae3d2c4
