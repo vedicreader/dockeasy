@@ -395,3 +395,59 @@ cfg
 ```
 
     {'FOO': 'bar', 'DATABASE_URL': 'postgresql://...'}
+
+## Reverse Proxy
+
+[`caddy()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy)
+generates a Caddyfile as a Python object — chainable, printable,
+saveable.  
+[`caddy_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc)
+writes the file and hands back service kwargs you can drop straight into
+[`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose).
+
+``` python
+# Minimal: auto-TLS via Let's Encrypt
+print(caddy('myapp.example.com'))
+```
+
+``` python
+# DNS-01 wildcard cert — works even when port 80 is closed
+print(caddy('myapp.example.com', dns='cloudflare', email='me@example.com'))
+```
+
+### Zero open ports with Cloudflare Tunnel
+
+[`caddy_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) +
+[`cloudflared_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc)
+→ a production stack with no inbound firewall rules at all.  
+Add `crowdsec=True` to either call to layer in IP reputation blocking.
+
+``` python
+import tempfile
+tmp = tempfile.mkdtemp()
+
+dc = (Compose()
+    .svc('app', build='.', networks=['web'], restart='unless-stopped')
+    .svc('caddy', **caddy_svc('myapp.example.com', cloudflared=True, conf=f'{tmp}/Caddyfile'))
+    .svc('cloudflared', **cloudflared_svc())
+    .network('web').volume('caddy_data').volume('caddy_config'))
+
+print(dc)
+```
+
+## Next steps
+
+The notebooks are executable specs — worth reading before shipping.
+
+- **`nbs/01_proxy.ipynb`** — live integration test: boots a FastHTML
+  app, tunnels it via Cloudflare, and asserts it’s reachable over the
+  internet. Shows the full
+  [`caddy_svc`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc)
+  /
+  [`cloudflared_svc`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc)
+  /
+  [`crowdsec`](https://Karthik777.github.io/dockeasy/proxy.html#crowdsec)
+  surface area with every option.
+- **`nbs/00_core.ipynb`** — complete Dockerfile and Compose API,
+  including multi-stage builds, framework builders, and container
+  management.
