@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Caddy reverse proxy, CrowdSec security, swag containers and Cloudflare tunnel support">
+
+<title>proxy – dockeasy</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-302b3f79daa8585235c194e0fecd03e8.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="proxy – dockeasy">
+<meta property="og:description" content="Caddy reverse proxy, CrowdSec security, swag containers and Cloudflare tunnel support">
+<meta property="og:site_name" content="dockeasy">
+<meta name="twitter:title" content="proxy – dockeasy">
+<meta name="twitter:description" content="Caddy reverse proxy, CrowdSec security, swag containers and Cloudflare tunnel support">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">dockeasy</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./proxy.html">proxy</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">dockeasy</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./proxy.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">proxy</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#caddyfile-builder" id="toc-caddyfile-builder" class="nav-link active" data-scroll-target="#caddyfile-builder">Caddyfile builder</a>
+  <ul class="collapse">
+  <li><a href="#caddyfile" id="toc-caddyfile" class="nav-link" data-scroll-target="#caddyfile">Caddyfile</a></li>
+  </ul></li>
+  <li><a href="#caddyfile-generation" id="toc-caddyfile-generation" class="nav-link" data-scroll-target="#caddyfile-generation">Caddyfile generation</a>
+  <ul class="collapse">
+  <li><a href="#caddy_api" id="toc-caddy_api" class="nav-link" data-scroll-target="#caddy_api">caddy_api</a></li>
+  <li><a href="#caddy" id="toc-caddy" class="nav-link" data-scroll-target="#caddy">caddy</a></li>
+  </ul></li>
+  <li><a href="#services" id="toc-services" class="nav-link" data-scroll-target="#services">Services</a>
+  <ul class="collapse">
+  <li><a href="#caddy_svc" id="toc-caddy_svc" class="nav-link" data-scroll-target="#caddy_svc">caddy_svc</a></li>
+  <li><a href="#cloudflared_svc" id="toc-cloudflared_svc" class="nav-link" data-scroll-target="#cloudflared_svc">cloudflared_svc</a></li>
+  <li><a href="#crowdsec" id="toc-crowdsec" class="nav-link" data-scroll-target="#crowdsec">crowdsec</a></li>
+  </ul></li>
+  <li><a href="#example-fasthtml-app-with-caddy" id="toc-example-fasthtml-app-with-caddy" class="nav-link" data-scroll-target="#example-fasthtml-app-with-caddy">Example: FastHTML app with Caddy</a></li>
+  <li><a href="#integration-test-fasthtml-caddy-cloudflared" id="toc-integration-test-fasthtml-caddy-cloudflared" class="nav-link" data-scroll-target="#integration-test-fasthtml-caddy-cloudflared">Integration test: FastHTML + Caddy + cloudflared</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/Karthik777/dockeasy/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="proxy.html.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">proxy</h1>
+</div>
+
+<div>
+  <div class="description">
+    Caddy reverse proxy, CrowdSec security, swag containers and Cloudflare tunnel support
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="caddyfile-builder" class="level2">
+<h2 class="anchored" data-anchor-id="caddyfile-builder">Caddyfile builder</h2>
+<hr>
+<p><a href="https://github.com/Karthik777/dockeasy/blob/main/dockeasy/proxy.py#L13" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="caddyfile" class="level3">
+<h3 class="anchored" data-anchor-id="caddyfile">Caddyfile</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Caddyfile(</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    domain, app:<span class="bu">str</span><span class="op">=</span><span class="st">'app'</span>, port:<span class="bu">int</span><span class="op">=</span><span class="dv">5001</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Fluent builder for production-ready Caddyfiles</em></p>
+</section>
+</section>
+<section id="caddyfile-generation" class="level2">
+<h2 class="anchored" data-anchor-id="caddyfile-generation">Caddyfile generation</h2>
+<p><code>caddyfile()</code> generates the Caddyfile text. <a href="https://Karthik777.github.io/dockeasy/proxy.html#caddy"><code>caddy()</code></a> writes it and returns service kwargs for <a href="https://Karthik777.github.io/dockeasy/core.html#compose.svc"><code>Compose.svc()</code></a>.</p>
+<hr>
+<p><a href="https://github.com/Karthik777/dockeasy/blob/main/dockeasy/proxy.py#L108" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="caddy_api" class="level3">
+<h3 class="anchored" data-anchor-id="caddy_api">caddy_api</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> caddy_api(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    domain, app:<span class="bu">str</span><span class="op">=</span><span class="st">'app'</span>, port:<span class="bu">int</span><span class="op">=</span><span class="dv">5001</span>, email:NoneType<span class="op">=</span><span class="va">None</span>, dns:NoneType<span class="op">=</span><span class="va">None</span>, dns_token_env:NoneType<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    cloudflared:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, crowdsec:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, crowdsec_url:<span class="bu">str</span><span class="op">=</span><span class="st">'http://crowdsec:8080'</span>, max_body:<span class="bu">str</span><span class="op">=</span><span class="st">'50m'</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    rate:<span class="bu">str</span><span class="op">=</span><span class="st">'200'</span>, rate_window:<span class="bu">str</span><span class="op">=</span><span class="st">'1m'</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">str</span>:</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Caddyfile preset for API services — adds rate limiting and body size cap</em></p>
+<hr>
+<p><a href="https://github.com/Karthik777/dockeasy/blob/main/dockeasy/proxy.py#L86" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="caddy" class="level3">
+<h3 class="anchored" data-anchor-id="caddy">caddy</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> caddy(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    domain, <span class="co"># domain to serve (e.g. example.com or sub.example.com)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    app:<span class="bu">str</span><span class="op">=</span><span class="st">'app'</span>, <span class="co"># upstream app name (must match Compose service name)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    port:<span class="bu">int</span><span class="op">=</span><span class="dv">5001</span>, <span class="co"># upstream app port</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    email:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># ACME account email (optional but good practice)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    dns:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># DNS-01 provider name for TLS when port 80 is blocked (e.g. 'cloudflare' or 'duckdns')</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    dns_token_env:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># env var name for DNS API token (default: {DNS}_API_TOKEN, e.g. CLOUDFLARE_API_TOKEN)</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    crowdsec:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># enable CrowdSec bouncer plugin (not built-in, requires separate service). you don't need this if you're using the pre-built Caddy images with CrowdSec support.</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    crowdsec_url:<span class="bu">str</span><span class="op">=</span><span class="st">'http://crowdsec:8080'</span>, <span class="co"># CrowdSec API URL (default assumes separate 'crowdsec' service in same Compose network)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    cloudflared:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># prefix with http:// for Cloudflare tunnel setups (disables ACME, requires separate cloudflared service)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    encode:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># enable compression (not on by default)</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    access_log:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># enable access logging to stderr (errors only by default)</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>Caddyfile:</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Minimal Caddyfile for reverse-proxying app:port from domain. Optional ACME email, DNS-01 provider, CrowdSec protection, and Cloudflare tunnel support.</em></p>
+<div id="2090108a" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Minimal</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>))</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'myapp.example.com {'</span> <span class="kw">in</span> cf</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'reverse_proxy app:5001'</span> <span class="kw">in</span> cf</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> cf.count(<span class="st">'{'</span>) <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(cf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>myapp.example.com {
+    reverse_proxy app:5001
+}</code></pre>
+</div>
+</div>
+<div id="c5aefe5a" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># With Cloudflare DNS</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, dns<span class="op">=</span><span class="st">'cloudflare'</span>, email<span class="op">=</span><span class="st">'me@example.com'</span>))</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'email me@example.com'</span> <span class="kw">in</span> cf</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}'</span> <span class="kw">in</span> cf</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(cf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>{
+    email me@example.com
+}
+myapp.example.com {
+    tls {
+        acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+    }
+    reverse_proxy app:5001
+}</code></pre>
+</div>
+</div>
+<div id="91cb747a" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># With CrowdSec</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, crowdsec<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'api_url http://crowdsec:8080'</span> <span class="kw">in</span> cf</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'crowdsec'</span> <span class="kw">in</span> cf</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'api_key {$CROWDSEC_API_KEY}'</span> <span class="kw">in</span> cf</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(cf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>myapp.example.com {
+    crowdsec {
+        api_url http://crowdsec:8080
+        api_key {$CROWDSEC_API_KEY}
+    }
+    reverse_proxy app:5001
+}</code></pre>
+</div>
+</div>
+<div id="704e77ff" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cloudflared mode: HTTP prefix</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, cloudflared<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> cf.startswith(<span class="st">'http://myapp.example.com {'</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'reverse_proxy app:5001'</span> <span class="kw">in</span> cf</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(cf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>http://myapp.example.com {
+    reverse_proxy app:5001
+}</code></pre>
+</div>
+</div>
+<div id="0omlfxxat96" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># caddy_api()</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy_api(<span class="st">'myapp.example.com'</span>))</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'rate_limit'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'max_size 50m'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'encode'</span> <span class="kw">in</span> cf</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'reverse_proxy app:5001'</span> <span class="kw">in</span> cf</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'caddy_api() OK'</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy_api(<span class="st">'myapp.example.com'</span>, crowdsec<span class="op">=</span><span class="va">True</span>, max_body<span class="op">=</span><span class="st">'100m'</span>, rate<span class="op">=</span><span class="st">'50'</span>, rate_window<span class="op">=</span><span class="st">'30s'</span>))</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'crowdsec'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'events 50'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'window 30s'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'max_size 100m'</span> <span class="kw">in</span> cf</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'caddy_api() with crowdsec OK'</span>)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Caddyfile.spa()</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(Caddyfile(<span class="st">'myapp.example.com'</span>).spa())</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'try_files </span><span class="sc">{path}</span><span class="st"> /index.html'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'file_server'</span> <span class="kw">in</span> cf</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'reverse_proxy'</span> <span class="kw">not</span> <span class="kw">in</span> cf</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'spa() OK'</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Caddyfile.encode() and .log()</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(caddy(<span class="st">'myapp.example.com'</span>, encode<span class="op">=</span><span class="va">True</span>, access_log<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'</span><span class="ch">\t</span><span class="st">encode'</span> <span class="kw">in</span> cf <span class="kw">and</span> <span class="st">'</span><span class="ch">\t</span><span class="st">log'</span> <span class="kw">in</span> cf</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'encode() and log() OK'</span>)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> <span class="bu">str</span>(Caddyfile(<span class="st">'myapp.example.com'</span>).log(output<span class="op">=</span><span class="st">'/var/log/caddy/access.log'</span>))</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'output /var/log/caddy/access.log'</span> <span class="kw">in</span> cf</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'log(output=...) OK'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>caddy_api() OK
+caddy_api() with crowdsec OK
+spa() OK
+encode() and log() OK
+log(output=...) OK</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="services" class="level2">
+<h2 class="anchored" data-anchor-id="services">Services</h2>
+<hr>
+<p><a href="https://github.com/Karthik777/dockeasy/blob/main/dockeasy/proxy.py#L132" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="caddy_svc" class="level3">
+<h3 class="anchored" data-anchor-id="caddy_svc">caddy_svc</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> caddy_svc(</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    domain, app:<span class="bu">str</span><span class="op">=</span><span class="st">'app'</span>, port:<span class="bu">int</span><span class="op">=</span><span class="dv">5001</span>, dns:NoneType<span class="op">=</span><span class="va">None</span>, email:NoneType<span class="op">=</span><span class="va">None</span>, crowdsec:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    cloudflared:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, conf:<span class="bu">str</span><span class="op">=</span><span class="st">'Caddyfile'</span>, kw:VAR_KEYWORD</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Write Caddyfile and return Caddy service kwargs for Compose.svc()</em></p>
+<div id="26d396dfb9110f70" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os, time, tempfile, subprocess</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastcore.<span class="bu">all</span> <span class="im">import</span> urlread, Path</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="eab323d0" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.com'</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'caddy:2'</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'ports'</span>] <span class="op">==</span> [<span class="st">'80:80'</span>, <span class="st">'443:443'</span>, <span class="st">'443:443/udp'</span>]</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'depends_on'</span>] <span class="op">==</span> [<span class="st">'app'</span>]</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() basic OK'</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.com'</span>, cloudflared<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>)</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'ports'</span> <span class="kw">not</span> <span class="kw">in</span> kw</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'caddy:2'</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> Path(<span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>).read_text().startswith(<span class="st">'http://ex.com {'</span>)</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() cloudflared OK'</span>)</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.com'</span>, crowdsec<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'serfriz/caddy-crowdsec:latest'</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'CROWDSEC_API_KEY=$</span><span class="sc">{CROWDSEC_API_KEY}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() crowdsec OK'</span>)</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.com'</span>, crowdsec<span class="op">=</span><span class="va">True</span>, cloudflared<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>)</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'serfriz/caddy-crowdsec:latest'</span></span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'ports'</span> <span class="kw">not</span> <span class="kw">in</span> kw</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() crowdsec+cloudflared OK'</span>)</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.com'</span>, dns<span class="op">=</span><span class="st">'cloudflare'</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>)</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'serfriz/caddy-cloudflare:latest'</span></span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'CLOUDFLARE_API_TOKEN=$</span><span class="sc">{CLOUDFLARE_API_TOKEN}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() cloudflare-dns OK'</span>)</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.com'</span>, dns<span class="op">=</span><span class="st">'cloudflare'</span>, crowdsec<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>)</span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'ghcr.io/buildplan/csdp-caddy:latest'</span></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'CLOUDFLARE_API_TOKEN=$</span><span class="sc">{CLOUDFLARE_API_TOKEN}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'CROWDSEC_API_KEY=$</span><span class="sc">{CROWDSEC_API_KEY}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() cloudflare-dns+crowdsec OK'</span>)</span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> tempfile.TemporaryDirectory() <span class="im">as</span> tmp:</span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> caddy_svc(<span class="st">'ex.duckdns.org'</span>, dns<span class="op">=</span><span class="st">'duckdns'</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>, image<span class="op">=</span><span class="st">'serfriz/caddy-duckdns:latest'</span>)</span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'serfriz/caddy-duckdns:latest'</span></span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'DUCKDNS_API_TOKEN=$</span><span class="sc">{DUCKDNS_API_TOKEN}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a>    cf <span class="op">=</span> Path(<span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>).read_text()</span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="st">'acme_dns duckdns {$DUCKDNS_API_TOKEN}'</span> <span class="kw">in</span> cf</span>
+<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'caddy_svc() duckdns OK'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>caddy_svc() basic OK
+caddy_svc() cloudflared OK
+caddy_svc() crowdsec OK
+caddy_svc() crowdsec+cloudflared OK
+caddy_svc() cloudflare-dns OK
+caddy_svc() cloudflare-dns+crowdsec OK
+caddy_svc() duckdns OK</code></pre>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/Karthik777/dockeasy/blob/main/dockeasy/proxy.py#L152" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="cloudflared_svc" class="level3">
+<h3 class="anchored" data-anchor-id="cloudflared_svc">cloudflared_svc</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cloudflared_svc(</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    token_env:<span class="bu">str</span><span class="op">=</span><span class="st">'$</span><span class="sc">{CF_TUNNEL_TOKEN}</span><span class="st">'</span>, url:NoneType<span class="op">=</span><span class="va">None</span>, kw:VAR_KEYWORD</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Cloudflare tunnel service kwargs for Compose.svc(). Pass url to set ingress inline (e.g.&nbsp;url=“http://caddy”).</em></p>
+<div id="08554f31" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>kw <span class="op">=</span> cloudflared_svc()</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'cloudflare/cloudflared:latest'</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> kw[<span class="st">'command'</span>] <span class="op">==</span> <span class="st">'tunnel --no-autoupdate run'</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'TUNNEL_TOKEN=$</span><span class="sc">{CF_TUNNEL_TOKEN}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'cloudflared_svc() OK'</span>)</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>kw2 <span class="op">=</span> cloudflared_svc(url<span class="op">=</span><span class="st">'http://caddy'</span>)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> kw2[<span class="st">'command'</span>] <span class="op">==</span> <span class="st">'tunnel --no-autoupdate run --url http://caddy'</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'cloudflared_svc() with url OK'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>cloudflared_svc() OK
+cloudflared_svc() with url OK</code></pre>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/Karthik777/dockeasy/blob/main/dockeasy/proxy.py#L159" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="crowdsec" class="level3">
+<h3 class="anchored" data-anchor-id="crowdsec">crowdsec</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> crowdsec(</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    collections:NoneType<span class="op">=</span><span class="va">None</span>, bouncer_key_env:<span class="bu">str</span><span class="op">=</span><span class="st">'CROWDSEC_BOUNCER_KEY'</span>, kw:VAR_KEYWORD</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>CrowdSec agent service kwargs for Compose.svc()</em></p>
+<div id="16810374" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>kw <span class="op">=</span> crowdsec()</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> kw[<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'crowdsecurity/crowdsec:latest'</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">any</span>(<span class="st">'crowdsecurity/caddy'</span> <span class="kw">in</span> e <span class="cf">for</span> e <span class="kw">in</span> kw[<span class="st">'environment'</span>])</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'BOUNCER_KEY_caddy=$</span><span class="sc">{CROWDSEC_BOUNCER_KEY}</span><span class="st">'</span> <span class="kw">in</span> kw[<span class="st">'environment'</span>]</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">any</span>(<span class="st">'crowdsec-db'</span> <span class="kw">in</span> v <span class="cf">for</span> v <span class="kw">in</span> kw[<span class="st">'volumes'</span>])</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'crowdsec() OK'</span>)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>kw2 <span class="op">=</span> crowdsec(collections<span class="op">=</span>[<span class="st">'crowdsecurity/linux'</span>, <span class="st">'crowdsecurity/nginx'</span>])</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">any</span>(<span class="st">'crowdsecurity/nginx'</span> <span class="kw">in</span> e <span class="cf">for</span> e <span class="kw">in</span> kw2[<span class="st">'environment'</span>])</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'crowdsec() custom collections OK'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>crowdsec() OK
+crowdsec() custom collections OK</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="example-fasthtml-app-with-caddy" class="level2">
+<h2 class="anchored" data-anchor-id="example-fasthtml-app-with-caddy">Example: FastHTML app with Caddy</h2>
+<p>Minimal stacks — run any with <code>dc.save('docker-compose.yml')</code> then <code>docker compose up -d</code>.</p>
+<div id="8e62b630" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="op">=</span> tempfile.mkdtemp()</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Stack A: Direct (Caddy auto-TLS, ports 80+443 open)</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>dc <span class="op">=</span> (Compose()</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'app'</span>, build<span class="op">=</span><span class="st">'.'</span>, networks<span class="op">=</span>[<span class="st">'web'</span>], restart<span class="op">=</span><span class="st">'unless-stopped'</span>)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'caddy'</span>, <span class="op">**</span>caddy_svc(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>))</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>    .network(<span class="st">'web'</span>, driver<span class="op">=</span><span class="st">'bridge'</span>).volume(<span class="st">'caddy_data'</span>).volume(<span class="st">'caddy_config'</span>))</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> dc.to_dict()</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'caddy:2'</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'80:80'</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'ports'</span>]</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'=== Stack A: Direct (Caddy auto-TLS) ==='</span>)</span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Stack A: Direct (Caddy auto-TLS) ===
+services:
+  app:
+    build: .
+    networks:
+    - web
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    depends_on:
+    - app
+    ports:
+    - 80:80
+    - 443:443
+    - 443:443/udp
+    volumes:
+    - /private/var/folders/kg/9vdw4mdd1fs58svgh4k1qhr09x7dqh/T/tmp2pn1i7ra/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+    networks:
+    - web
+    restart: unless-stopped
+networks:
+  web:
+    driver: bridge
+volumes:
+  caddy_data: null
+  caddy_config: null
+</code></pre>
+</div>
+</div>
+<div id="b7991a4e" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="op">=</span> tempfile.mkdtemp()</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Stack B: cloudflared tunnel (zero open ports)</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>dc <span class="op">=</span> (Compose()</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'app'</span>, build<span class="op">=</span><span class="st">'.'</span>, networks<span class="op">=</span>[<span class="st">'web'</span>], restart<span class="op">=</span><span class="st">'unless-stopped'</span>)</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'caddy'</span>, <span class="op">**</span>caddy_svc(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, cloudflared<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>))</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'cloudflared'</span>, <span class="op">**</span>cloudflared_svc())</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>    .network(<span class="st">'web'</span>).volume(<span class="st">'caddy_data'</span>).volume(<span class="st">'caddy_config'</span>))</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> dc.to_dict()</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'ports'</span> <span class="kw">not</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>]</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'cloudflared'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'cloudflare/cloudflared:latest'</span></span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'=== Stack B: Cloudflared (zero open ports) ==='</span>)</span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Stack B: Cloudflared (zero open ports) ===
+services:
+  app:
+    build: .
+    networks:
+    - web
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    depends_on:
+    - app
+    volumes:
+    - /private/var/folders/kg/9vdw4mdd1fs58svgh4k1qhr09x7dqh/T/tmprvwce3po/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+    networks:
+    - web
+    restart: unless-stopped
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+    - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    networks:
+    - web
+    restart: unless-stopped
+networks:
+  web: null
+volumes:
+  caddy_data: null
+  caddy_config: null
+</code></pre>
+</div>
+</div>
+<div id="43f38b5f" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="op">=</span> tempfile.mkdtemp()</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Stack C: CrowdSec + cloudflared (full security, zero open ports)</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>dc <span class="op">=</span> (Compose()</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'app'</span>, build<span class="op">=</span><span class="st">'.'</span>, networks<span class="op">=</span>[<span class="st">'web'</span>], restart<span class="op">=</span><span class="st">'unless-stopped'</span>)</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'caddy'</span>, <span class="op">**</span>caddy_svc(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, crowdsec<span class="op">=</span><span class="va">True</span>, cloudflared<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>))</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'crowdsec'</span>, <span class="op">**</span>crowdsec())</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'cloudflared'</span>, <span class="op">**</span>cloudflared_svc())</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>    .network(<span class="st">'web'</span>)</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>    .volume(<span class="st">'caddy_data'</span>).volume(<span class="st">'caddy_config'</span>)</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>    .volume(<span class="st">'crowdsec-db'</span>).volume(<span class="st">'crowdsec-config'</span>))</span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> dc.to_dict()</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'serfriz/caddy-crowdsec:latest'</span></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'crowdsec'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'crowdsecurity/crowdsec:latest'</span></span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'ports'</span> <span class="kw">not</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>]</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'=== Stack C: CrowdSec + cloudflared (zero open ports) ==='</span>)</span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Stack C: CrowdSec + cloudflared (zero open ports) ===
+services:
+  app:
+    build: .
+    networks:
+    - web
+    restart: unless-stopped
+  caddy:
+    image: serfriz/caddy-crowdsec:latest
+    depends_on:
+    - app
+    volumes:
+    - /private/var/folders/kg/9vdw4mdd1fs58svgh4k1qhr09x7dqh/T/tmp7hi9ftvr/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+    environment:
+    - CROWDSEC_API_KEY=${CROWDSEC_API_KEY}
+    networks:
+    - web
+    restart: unless-stopped
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    volumes:
+    - crowdsec-db:/var/lib/crowdsec/data
+    - crowdsec-config:/etc/crowdsec
+    environment:
+    - COLLECTIONS=crowdsecurity/linux crowdsecurity/caddy crowdsecurity/http-cve
+    - BOUNCER_KEY_caddy=${CROWDSEC_BOUNCER_KEY}
+    networks:
+    - web
+    restart: unless-stopped
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+    - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    networks:
+    - web
+    restart: unless-stopped
+networks:
+  web: null
+volumes:
+  caddy_data: null
+  caddy_config: null
+  crowdsec-db: null
+  crowdsec-config: null
+</code></pre>
+</div>
+</div>
+<div id="4t7n3x5uqy" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="op">=</span> tempfile.mkdtemp()</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Stack D: Cloudflare DNS-01 (wildcard cert via ACME, ports 80+443 open, no tunnel)</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>dc <span class="op">=</span> (Compose()</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'app'</span>, build<span class="op">=</span><span class="st">'.'</span>, networks<span class="op">=</span>[<span class="st">'web'</span>], restart<span class="op">=</span><span class="st">'unless-stopped'</span>)</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'caddy'</span>, <span class="op">**</span>caddy_svc(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>, dns<span class="op">=</span><span class="st">'cloudflare'</span>, email<span class="op">=</span><span class="st">'me@example.com'</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>))</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>    .network(<span class="st">'web'</span>).volume(<span class="st">'caddy_data'</span>).volume(<span class="st">'caddy_config'</span>))</span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> dc.to_dict()</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'serfriz/caddy-cloudflare:latest'</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'80:80'</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'ports'</span>]</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'CLOUDFLARE_API_TOKEN=$</span><span class="sc">{CLOUDFLARE_API_TOKEN}</span><span class="st">'</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'environment'</span>]</span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> Path(<span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>).read_text()</span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}'</span> <span class="kw">in</span> cf</span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'=== Stack D: Cloudflare DNS-01 (wildcard cert, direct) ==='</span>)</span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dc)</span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'--- Caddyfile ---'</span>)</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(cf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Stack D: Cloudflare DNS-01 (wildcard cert, direct) ===
+services:
+  app:
+    build: .
+    networks:
+    - web
+    restart: unless-stopped
+  caddy:
+    image: serfriz/caddy-cloudflare:latest
+    depends_on:
+    - app
+    ports:
+    - 80:80
+    - 443:443
+    - 443:443/udp
+    volumes:
+    - /private/var/folders/kg/9vdw4mdd1fs58svgh4k1qhr09x7dqh/T/tmptw1nzplx/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+    environment:
+    - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    networks:
+    - web
+    restart: unless-stopped
+networks:
+  web: null
+volumes:
+  caddy_data: null
+  caddy_config: null
+
+--- Caddyfile ---
+{
+    email me@example.com
+}
+myapp.example.com {
+    tls {
+        acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+    }
+    reverse_proxy app:5001
+}</code></pre>
+</div>
+</div>
+<div id="y3g1bnka5gt" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="op">=</span> tempfile.mkdtemp()</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Stack E: Cloudflare DNS + CrowdSec (full security, direct ports open)</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>dc <span class="op">=</span> (Compose()</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'app'</span>, build<span class="op">=</span><span class="st">'.'</span>, networks<span class="op">=</span>[<span class="st">'web'</span>], restart<span class="op">=</span><span class="st">'unless-stopped'</span>)</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'caddy'</span>, <span class="op">**</span>caddy_svc(<span class="st">'myapp.example.com'</span>, port<span class="op">=</span><span class="dv">5001</span>,</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>                              dns<span class="op">=</span><span class="st">'cloudflare'</span>, crowdsec<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>                              email<span class="op">=</span><span class="st">'me@example.com'</span>, conf<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>))</span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'crowdsec'</span>, <span class="op">**</span>crowdsec())</span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>    .network(<span class="st">'web'</span>)</span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>    .volume(<span class="st">'caddy_data'</span>).volume(<span class="st">'caddy_config'</span>)</span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>    .volume(<span class="st">'crowdsec-db'</span>).volume(<span class="st">'crowdsec-config'</span>))</span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> dc.to_dict()</span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'ghcr.io/buildplan/csdp-caddy:latest'</span></span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'80:80'</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'ports'</span>]</span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> d[<span class="st">'services'</span>][<span class="st">'crowdsec'</span>][<span class="st">'image'</span>] <span class="op">==</span> <span class="st">'crowdsecurity/crowdsec:latest'</span></span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'CLOUDFLARE_API_TOKEN=$</span><span class="sc">{CLOUDFLARE_API_TOKEN}</span><span class="st">'</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'environment'</span>]</span>
+<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'CROWDSEC_API_KEY=$</span><span class="sc">{CROWDSEC_API_KEY}</span><span class="st">'</span> <span class="kw">in</span> d[<span class="st">'services'</span>][<span class="st">'caddy'</span>][<span class="st">'environment'</span>]</span>
+<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a>cf <span class="op">=</span> Path(<span class="ss">f'</span><span class="sc">{</span>tmp<span class="sc">}</span><span class="ss">/Caddyfile'</span>).read_text()</span>
+<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}'</span> <span class="kw">in</span> cf</span>
+<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'crowdsec'</span> <span class="kw">in</span> cf</span>
+<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'=== Stack E: Cloudflare DNS + CrowdSec (full security, direct ports) ==='</span>)</span>
+<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dc)</span>
+<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'--- Caddyfile ---'</span>)</span>
+<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(cf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Stack E: Cloudflare DNS + CrowdSec (full security, direct ports) ===
+services:
+  app:
+    build: .
+    networks:
+    - web
+    restart: unless-stopped
+  caddy:
+    image: ghcr.io/buildplan/csdp-caddy:latest
+    depends_on:
+    - app
+    ports:
+    - 80:80
+    - 443:443
+    - 443:443/udp
+    volumes:
+    - /private/var/folders/kg/9vdw4mdd1fs58svgh4k1qhr09x7dqh/T/tmp4y8f06cw/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+    environment:
+    - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    - CROWDSEC_API_KEY=${CROWDSEC_API_KEY}
+    networks:
+    - web
+    restart: unless-stopped
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    volumes:
+    - crowdsec-db:/var/lib/crowdsec/data
+    - crowdsec-config:/etc/crowdsec
+    environment:
+    - COLLECTIONS=crowdsecurity/linux crowdsecurity/caddy crowdsecurity/http-cve
+    - BOUNCER_KEY_caddy=${CROWDSEC_BOUNCER_KEY}
+    networks:
+    - web
+    restart: unless-stopped
+networks:
+  web: null
+volumes:
+  caddy_data: null
+  caddy_config: null
+  crowdsec-db: null
+  crowdsec-config: null
+
+--- Caddyfile ---
+{
+    email me@example.com
+}
+myapp.example.com {
+    tls {
+        acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+    }
+    crowdsec {
+        api_url http://crowdsec:8080
+        api_key {$CROWDSEC_API_KEY}
+    }
+    reverse_proxy app:5001
+}</code></pre>
+</div>
+</div>
+</section>
+<section id="integration-test-fasthtml-caddy-cloudflared" class="level2">
+<h2 class="anchored" data-anchor-id="integration-test-fasthtml-caddy-cloudflared">Integration test: FastHTML + Caddy + cloudflared</h2>
+<p>Live test — spins up a real stack and verifies the app is reachable over the internet.</p>
+<p><strong>Prerequisites:</strong> - <code>DOMAIN</code> env var: hostname matching your Cloudflare tunnel ingress rule (e.g.&nbsp;<code>myapp.example.com</code>) - <code>CF_TUNNEL_TOKEN</code> env var: from Cloudflare Zero Trust → Tunnels - Tunnel ingress rule configured in Cloudflare dashboard: <code>DOMAIN → http://caddy</code></p>
+<div id="ba88468da600b46b" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>DOMAIN <span class="op">=</span> <span class="st">'fastops.angalama.com'</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># CF_TUNNEL_TOKEN read from host env by docker-compose: ${CF_TUNNEL_TOKEN}</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ── app ───────────────────────────────────────────────────────────────────────</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>app_dir <span class="op">=</span> Path(tempfile.mkdtemp(<span class="bu">dir</span><span class="op">=</span><span class="st">'.'</span>))</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>(app_dir <span class="op">/</span> <span class="st">'app.py'</span>).write_text(<span class="st">'''</span><span class="op">\</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="st">from fasthtml.common import *</span></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a><span class="st">app, rt = fast_app()</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a><span class="st">@rt('/')</span></span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a><span class="st">def get(): return Titled('dockeasy-proxy-test', P('Caddy + cloudflared ✓'))</span></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a><span class="st">serve()</span></span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a><span class="st">'''</span>)</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>(app_dir <span class="op">/</span> <span class="st">'pyproject.toml'</span>).write_text(<span class="st">'''</span><span class="op">\</span></span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="st">[project]</span></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a><span class="st">name = "proxy-test"</span></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a><span class="st">version = "0.1.0"</span></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a><span class="st">dependencies = ["python-fasthtml", "starlette&lt;0.46"]</span></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a><span class="st">'''</span>)</span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>fasthtml_app().save(app_dir <span class="op">/</span> <span class="st">'Dockerfile'</span>)</span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>tag <span class="op">=</span> <span class="st">'dockeasy-proxy-test:latest'</span></span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a><span class="co"># ── compose stack ─────────────────────────────────────────────────────────────</span></span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>inf_dir <span class="op">=</span> Path(tempfile.mkdtemp(<span class="bu">dir</span><span class="op">=</span><span class="st">'.'</span>))</span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>cf_path <span class="op">=</span> <span class="bu">str</span>(inf_dir <span class="op">/</span> <span class="st">'Caddyfile'</span>)</span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>dc_path <span class="op">=</span> <span class="bu">str</span>(inf_dir <span class="op">/</span> <span class="st">'docker-compose.yml'</span>)</span>
+<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>dc <span class="op">=</span> (Compose()</span>
+<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'app'</span>, build<span class="op">=</span><span class="bu">str</span>(app_dir), image<span class="op">=</span>tag, networks<span class="op">=</span>[<span class="st">'web'</span>], restart<span class="op">=</span><span class="st">'unless-stopped'</span>)</span>
+<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'caddy'</span>, <span class="op">**</span>caddy_svc(DOMAIN, cloudflared<span class="op">=</span><span class="va">True</span>, conf<span class="op">=</span>cf_path))</span>
+<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>    .svc(<span class="st">'cloudflared'</span>, <span class="op">**</span>cloudflared_svc(url<span class="op">=</span><span class="st">'http://caddy'</span>))</span>
+<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>    .network(<span class="st">'web'</span>).volume(<span class="st">'caddy_data'</span>).volume(<span class="st">'caddy_config'</span>))</span>
+<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dc)</span>
+<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'--- Caddyfile ---'</span>)</span>
+<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(Path(cf_path).read_text())</span>
+<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a><span class="co"># ── run &amp; verify ──────────────────────────────────────────────────────────────</span></span>
+<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a>    dc.up(path<span class="op">=</span>dc_path)</span>
+<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'Waiting for cloudflared tunnel to connect...'</span>)</span>
+<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>    html <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb34-45"><a href="#cb34-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">12</span>):</span>
+<span id="cb34-46"><a href="#cb34-46" aria-hidden="true" tabindex="-1"></a>        time.sleep(<span class="dv">10</span>)</span>
+<span id="cb34-47"><a href="#cb34-47" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>: html <span class="op">=</span> urlread(<span class="ss">f'https://</span><span class="sc">{</span>DOMAIN<span class="sc">}</span><span class="ss">'</span>)<span class="op">;</span> <span class="cf">break</span></span>
+<span id="cb34-48"><a href="#cb34-48" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e: <span class="bu">print</span>(<span class="ss">f'  [</span><span class="sc">{</span>(i<span class="op">+</span><span class="dv">1</span>)<span class="op">*</span><span class="dv">10</span><span class="sc">}</span><span class="ss">s] not ready: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb34-49"><a href="#cb34-49" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'=== container logs ==='</span>)</span>
+<span id="cb34-50"><a href="#cb34-50" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(dc.logs(path<span class="op">=</span>dc_path))</span>
+<span id="cb34-51"><a href="#cb34-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> html <span class="kw">and</span> <span class="st">'dockeasy-proxy-test'</span> <span class="kw">in</span> html, <span class="ss">f'Unexpected response: </span><span class="sc">{</span>html[:<span class="dv">200</span>] <span class="cf">if</span> html <span class="cf">else</span> <span class="st">"no response"</span><span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb34-52"><a href="#cb34-52" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f'✓ App reachable at https://</span><span class="sc">{</span>DOMAIN<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb34-53"><a href="#cb34-53" aria-hidden="true" tabindex="-1"></a><span class="cf">finally</span>:</span>
+<span id="cb34-54"><a href="#cb34-54" aria-hidden="true" tabindex="-1"></a>    dc.down(path<span class="op">=</span>dc_path, v<span class="op">=</span><span class="va">True</span>, remove_orphans<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb34-55"><a href="#cb34-55" aria-hidden="true" tabindex="-1"></a>    rmi(tag, force<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb34-56"><a href="#cb34-56" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">'Cleaned up.'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>services:
+  app:
+    image: dockeasy-proxy-test:latest
+    build: /Users/71293/code/dockeasy/nbs/tmpode386ks
+    networks:
+    - web
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    depends_on:
+    - app
+    volumes:
+    - /Users/71293/code/dockeasy/nbs/tmp881ik_hr/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+    networks:
+    - web
+    restart: unless-stopped
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --url http://caddy
+    environment:
+    - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    networks:
+    - web
+    restart: unless-stopped
+networks:
+  web: null
+volumes:
+  caddy_data: null
+  caddy_config: null
+
+--- Caddyfile ---
+http://fastops.angalama.com {
+    reverse_proxy app:5001
+}
+Waiting for cloudflared tunnel to connect...
+=== container logs ===
+caddy-1        | {"level":"info","ts":1774238518.5918498,"msg":"maxprocs: Leaving GOMAXPROCS=2: CPU quota undefined"}
+cloudflared-1  | 2026-03-23T04:01:58Z INF Starting tunnel tunnelID=8dc509a8-a295-46d0-bf48-95f619ca930b
+caddy-1        | {"level":"info","ts":1774238518.591999,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":1848873369,"previous":9223372036854775807}
+caddy-1        | {"level":"info","ts":1774238518.592026,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+caddy-1        | {"level":"info","ts":1774238518.5920372,"msg":"adapted config to JSON","adapter":"caddyfile"}
+app-1          | INFO:     Will watch for changes in these directories: ['/app']
+caddy-1        | {"level":"warn","ts":1774238518.5920472,"msg":"Caddyfile input is not formatted; run 'caddy fmt --overwrite' to fix inconsistencies","adapter":"caddyfile","file":"/etc/caddy/Caddyfile","line":3}
+app-1          | INFO:     Uvicorn running on http://0.0.0.0:5001 (Press CTRL+C to quit)
+app-1          | INFO:     Started reloader process [1] using WatchFiles
+app-1          | Link: http://localhost:5001
+app-1          | INFO:     Started server process [7]
+caddy-1        | {"level":"info","ts":1774238518.5930362,"logger":"admin","msg":"admin endpoint started","address":"localhost:2019","enforce_origin":false,"origins":["//[::1]:2019","//127.0.0.1:2019","//localhost:2019"]}
+caddy-1        | {"level":"warn","ts":1774238518.5931695,"logger":"http.auto_https","msg":"server is listening only on the HTTP port, so no automatic HTTPS will be applied to this server","server_name":"srv0","http_port":80}
+app-1          | INFO:     Waiting for application startup.
+caddy-1        | {"level":"info","ts":1774238518.5932415,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x76986d100200"}
+caddy-1        | {"level":"warn","ts":1774238518.5933907,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+cloudflared-1  | 2026-03-23T04:01:58Z INF Version 2026.2.0 (Checksum 5620827b47ba8b47b20649f810e00a7a4e25da71ef66c30bec2b94eeb5c99689)
+cloudflared-1  | 2026-03-23T04:01:58Z INF GOOS: linux, GOVersion: go1.24.13, GoArch: arm64
+caddy-1        | {"level":"warn","ts":1774238518.5933926,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+cloudflared-1  | 2026-03-23T04:01:58Z INF Settings: map[no-autoupdate:true url:http://caddy]
+cloudflared-1  | 2026-03-23T04:01:58Z INF Generated Connector ID: 2274aaf4-28ed-4c2b-a516-5303a48fba5b
+caddy-1        | {"level":"info","ts":1774238518.5933936,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+app-1          | INFO:     Application startup complete.
+caddy-1        | {"level":"info","ts":1774238518.593471,"msg":"autosaved config (load with --resume flag)","file":"/config/caddy/autosave.json"}
+app-1          | INFO:     172.19.0.4:54496 - "GET / HTTP/1.1" 200 OK
+caddy-1        | {"level":"info","ts":1774238518.5934741,"msg":"serving initial configuration"}
+caddy-1        | {"level":"info","ts":1774238518.595158,"logger":"tls","msg":"cleaning storage unit","storage":"FileStorage:/data/caddy"}
+caddy-1        | {"level":"info","ts":1774238518.6006067,"logger":"tls","msg":"finished cleaning storage units"}
+cloudflared-1  | 2026-03-23T04:01:58Z INF Initial protocol quic
+cloudflared-1  | 2026-03-23T04:01:58Z INF ICMP proxy will use 172.19.0.3 as source for IPv4
+cloudflared-1  | 2026-03-23T04:01:58Z INF ICMP proxy will use ::1 in zone lo as source for IPv6
+cloudflared-1  | 2026-03-23T04:01:58Z INF ICMP proxy will use 172.19.0.3 as source for IPv4
+cloudflared-1  | 2026-03-23T04:01:58Z INF ICMP proxy will use ::1 in zone lo as source for IPv6
+cloudflared-1  | 2026-03-23T04:01:58Z INF Starting metrics server on [::]:20241/metrics
+cloudflared-1  | 2026-03-23T04:01:58Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.192.57
+cloudflared-1  | 2026/03/23 04:01:58 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+cloudflared-1  | 2026-03-23T04:01:59Z INF Registered tunnel connection connIndex=0 connection=852faa5f-2fb0-41a8-8e57-b46aa8fa60c8 event=0 ip=198.41.192.57 location=mel01 protocol=quic
+cloudflared-1  | 2026-03-23T04:01:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=1 event=0 ip=198.41.200.63
+cloudflared-1  | 2026-03-23T04:01:59Z INF Registered tunnel connection connIndex=1 connection=23b5eaeb-9af2-45f7-af78-a2f4474c6491 event=0 ip=198.41.200.63 location=syd05 protocol=quic
+cloudflared-1  | 2026-03-23T04:02:00Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=2 event=0 ip=198.41.192.107
+cloudflared-1  | 2026-03-23T04:02:00Z INF Registered tunnel connection connIndex=2 connection=f570338f-b8ae-4efa-a350-5fbb169591ce event=0 ip=198.41.192.107 location=mel02 protocol=quic
+cloudflared-1  | 2026-03-23T04:02:01Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=3 event=0 ip=198.41.200.113
+cloudflared-1  | 2026-03-23T04:02:02Z INF Registered tunnel connection connIndex=3 connection=8532097b-e13a-435c-85f8-453f231e8f9e event=0 ip=198.41.200.113 location=adl01 protocol=quic
+✓ App reachable at https://fastops.angalama.com
+Cleaned up.</code></pre>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/Karthik777\.github\.io\/dockeasy");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/Karthik777/dockeasy/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
