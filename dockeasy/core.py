@@ -5,7 +5,7 @@
 # %% auto #0
 __all__ = ['fasthtml_app', 'mk_flags', 'Dockerfile', 'Cli', 'Docker', 'test', 'drun', 'containers', 'images', 'stop', 'logs',
            'rm', 'rmi', 'dict2str', 'service', 'Compose', 'python_app', 'fastapi_react', 'go_app', 'rust_app',
-           'node_app', 'detect_app', 'env_set', 'env_get', 'secret_set', 'secret_get', 'secrets']
+           'node_app', 'detect_app', 'rp_plan', 'rp_build', 'env_set', 'env_get', 'secret_set', 'secret_get', 'secrets']
 
 # %% ../nbs/00_core.ipynb #c7b52454175ab4d4
 import re, json, os, yaml, keyring, time
@@ -349,8 +349,8 @@ def node_app(port=3000, node_version='20', cmd=None, build_cmd='npm run build', 
 
 fasthtml_app = bind(python_app, port=5001, cmd=['python', 'app.py'], multistage=False)
 
-def detect_app(path='.', multistage=True, **kw):
-    'A naive project type detector from path and return the appropriate Dockerfile. for **kw lookup other app builders'
+def detect_app(path='.', multistage=True, use_railpack=False, **kw):
+    'Detect project type and return the appropriate Dockerfile. use_railpack=True falls back to rp_build() for unsupported stacks (PHP, Java, Ruby, .NET, Elixir, Deno, C++ etc.) — returns tag str instead of Dockerfile in that case. For **kw see each app builder.'
     p = Path(path)
     has = lambda f: (p/f).exists()
     read = lambda f: (p/f).read_text().lower() if has(f) else ''
@@ -363,7 +363,35 @@ def detect_app(path='.', multistage=True, **kw):
     if pyp and 'python-fasthtml' in read('pyproject.toml'): return fasthtml_app(multistage=multistage, **kw)
     if pyp: return python_app(multistage=multistage, **kw)
     if req: return python_app(multistage=False, req=True, **kw)
-    raise ValueError(f'Cannot detect project type in {path!r}')
+    if use_railpack: return rp_build(path=path, **kw)
+    raise ValueError(f'Cannot detect project type in {path!r}. Try use_railpack=True for PHP, Java, Ruby, .NET, Elixir, Deno etc.')
+
+# %% ../nbs/00_core.ipynb #q08mqwq7vu
+def rp_plan(path='.'):
+    'Run `railpack plan` on path and return the parsed build plan dict. Useful for inspecting detected language, packages, and build steps without building.'
+    result = run('railpack', 'plan', str(Path(path).resolve()))
+    return json.loads(result)
+
+def rp_build(path='.', tag=None, buildkit_host=None, config=None):
+    'Build image from path using railpack + BuildKit. Supports all railpack-detected languages (PHP, Java, Ruby, .NET, Elixir, Deno, C++ etc.). config dict is written as railpack.json if one does not already exist. Returns tag.'
+    import subprocess
+    p = Path(path).resolve()
+    cfg_path = p / 'railpack.json'
+    wrote_cfg = False
+    if config and not cfg_path.exists():
+        cfg_path.write_text(json.dumps(config, indent=2))
+        wrote_cfg = True
+    try:
+        args = ['railpack', 'build']
+        if tag: args += ['--tag', tag]
+        args.append(str(p))
+        env = os.environ.copy()
+        if buildkit_host: env['BUILDKIT_HOST'] = buildkit_host
+        res = subprocess.run(args, env=env, capture_output=True)
+        if res.returncode: raise IOError((res.stdout + b' ;; ' + res.stderr).decode().strip())
+    finally:
+        if wrote_cfg: cfg_path.unlink(missing_ok=True)
+    return tag
 
 # %% ../nbs/00_core.ipynb #5f5a4229dae3d2c4
 _FASTOPS_ENV = Path.home() / '.config' / 'fastops' / '.env'

@@ -252,6 +252,65 @@ for files, label in cases:
     package.json + pyproject.toml → fastapi_react
     pyproject.toml → python_app (port 8000)
 
+### Railpack: build any language
+
+[Railpack](https://railpack.com) is Railway's zero-config image builder. Where
+`detect_app` covers Python, Go, Rust and Node, railpack adds **PHP, Java, Ruby,
+.NET, Elixir, Deno, C++, Gleam** and more — and builds via BuildKit LLB, so no
+Dockerfile is required. It also detects an existing `Dockerfile` in the repo and
+uses it directly.
+
+**Install railpack**
+
+| Platform | Command |
+|---|---|
+| macOS / Linux (mise) | `curl https://mise.run \| sh && mise install github:railwayapp/railpack@latest` |
+| macOS (Homebrew) | `brew install railpack` |
+| Linux (binary) | `curl -L .../railpack-linux-amd64 -o railpack && chmod +x railpack && sudo mv railpack /usr/local/bin/` |
+| Windows (Scoop) | `scoop install railpack` |
+
+**Start BuildKit** (required for `rp_build`):
+
+``` bash
+docker run --rm --privileged -d --name buildkit moby/buildkit
+export BUILDKIT_HOST='docker-container://buildkit'
+```
+
+``` python
+# Build a Laravel (PHP) app — detect_app can't handle this, railpack can
+rp_build('/path/to/my-laravel-app', tag='myapp:latest')
+
+# detect_app with railpack fallback — no ValueError for unknown stacks
+detect_app('/path/to/my-java-app', use_railpack=True, tag='myapp:latest')
+
+# Inspect what railpack detects before building
+plan = rp_plan('/path/to/my-node-app')
+print(plan['deploy']['startCommand'])   # e.g. 'node dist/index.js'
+print(plan['packages'])                 # e.g. {'node': '20.x'}
+
+# Pass apt packages and custom commands — mirrors dockeasy's pkgs= pattern
+rp_build('.', tag='myapp:latest', config={
+    '$schema': 'https://schema.railpack.com',
+    'steps': {
+        'install': {'commands': ['apt-get install -y libpq-dev libgdal-dev']}
+    },
+    'deploy': {
+        'startCommand': 'gunicorn app:create_app --bind 0.0.0.0:8000 --workers 4',
+        'variables': {'DATABASE_POOL_SIZE': '10'}
+    }
+})
+
+# Hybrid: dockeasy generates the Dockerfile, railpack builds it via BuildKit
+df = python_app(port=8000, pkgs=['libpq-dev', 'curl'], vols=['/app/data'], healthcheck='/health')
+df.save('/path/to/myproject/Dockerfile')   # railpack auto-detects this
+rp_build('/path/to/myproject', tag='myapp:latest')
+
+# Or load an existing Dockerfile, extend it, then build with railpack
+df = Dockerfile.load('/path/to/myproject/Dockerfile')
+df.run('apt-get install -y libpq-dev').save('/path/to/myproject/Dockerfile')
+rp_build('/path/to/myproject', tag='myapp:v2')
+```
+
 ## Docker Compose
 
 The [`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose)
