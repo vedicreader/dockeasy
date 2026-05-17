@@ -35,6 +35,13 @@ path = "dockeasy/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["dockeasy"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/dockeasy",
+    "/README.md",
+    "/pyproject.toml",
+]
+
 [tool.nbdev]
 
 [dependency-groups]
