@@ -2,8 +2,8 @@
 
 d = { 'settings': { 'branch': 'main',
                 'doc_baseurl': '/dockeasy',
-                'doc_host': 'https://Karthik777.github.io',
-                'git_url': 'https://github.com/Karthik777/dockeasy',
+                'doc_host': 'https://vedicreader.github.io',
+                'git_url': 'https://github.com/vedicreader/dockeasy',
                 'lib_path': 'dockeasy'},
   'syms': { 'dockeasy.core': { 'dockeasy.core.Cli': ('core.html#cli', 'dockeasy/core.py'),
                                'dockeasy.core.Cli.__call__': ('core.html#cli.__call__', 'dockeasy/core.py'),
@@ -132,4 +132,7 @@ d = { 'settings': { 'branch': 'main',
                                 'dockeasy.proxy.caddy_sqlite_svc': ('proxy.html#caddy_sqlite_svc', 'dockeasy/proxy.py'),
                                 'dockeasy.proxy.caddy_svc': ('proxy.html#caddy_svc', 'dockeasy/proxy.py'),
                                 'dockeasy.proxy.cloudflared_svc': ('proxy.html#cloudflared_svc', 'dockeasy/proxy.py'),
-                                'dockeasy.proxy.crowdsec': ('proxy.html#crowdsec', 'dockeasy/proxy.py')}}}
+                                'dockeasy.proxy.crowdsec': ('proxy.html#crowdsec', 'dockeasy/proxy.py')},
+            'dockeasy.tenant': { 'dockeasy.tenant._detect_port': ('tenant.html#_detect_port', 'dockeasy/tenant.py'),
+                                 'dockeasy.tenant.sync_routes': ('tenant.html#sync_routes', 'dockeasy/tenant.py'),
+                                 'dockeasy.tenant.tenant_stack': ('tenant.html#tenant_stack', 'dockeasy/tenant.py')}}}

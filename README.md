@@ -435,19 +435,85 @@ dc = (Compose()
 print(dc)
 ```
 
+### Dynamic subdomain routing (SQLite)
+
+Route `*.yourdomain.com` to different backends at runtime — no Caddy
+restart needed. Add or remove tenants with a single SQL `INSERT` or
+`DELETE`.
+
+`caddy_sqlite_router` uses
+[caddy-sqlite-router](https://github.com/AnswerDotAI/caddy-sqlite-router):
+a Caddy plugin that extracts the subdomain from each request and queries
+a SQLite DB to find the backend. The custom Caddy image is a two-stage
+build —
+[`caddy_sqlite_dockerfile()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_sqlite_dockerfile)
+generates it using the fluent builder:
+
+``` python
+print(caddy_sqlite_dockerfile())
+```
+
+The routes DB is the live source of truth. Each row maps a subdomain to
+a backend host and port:
+
+``` python
+import sqlite3
+
+tmp = tempfile.mkdtemp()
+db_path = f'{tmp}/routes.db'
+
+con = sqlite3.connect(db_path)
+con.execute('CREATE TABLE routes (domain TEXT PRIMARY KEY, host TEXT NOT NULL, port INTEGER NOT NULL)')
+con.executemany('INSERT INTO routes VALUES (?,?,?)', [
+    ('acme',   'acme-app',   5001),   # acme.yourdomain.com   → acme-app:5001
+    ('globex', 'globex-app', 5001),   # globex.yourdomain.com → globex-app:5001
+])
+con.commit()
+
+# Adding a new tenant is one INSERT — no config reload, no restart
+con.execute("INSERT INTO routes VALUES ('initech', 'initech-app', 5001)")
+con.commit(); con.close()
+```
+
+[`caddy_sqlite_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_sqlite_svc)
+writes the Caddyfile and returns service kwargs. The routes DB is
+bind-mounted into the container so Caddy reads it live:
+
+``` python
+caddy_dir = tempfile.mkdtemp()
+caddy_sqlite_dockerfile().save(f'{caddy_dir}/Dockerfile')  # build context for custom image
+
+caddy_kw = caddy_sqlite_svc('*.yourdomain.com', db='/routes.db',
+                             build=caddy_dir, conf=f'{tmp}/Caddyfile')
+caddy_kw['volumes'].append(f'{db_path}:/routes.db')  # live-mount the routes DB
+
+dc = (Compose()
+    .svc('acme-app',   build='./acme',   networks=['web'], restart='unless-stopped')
+    .svc('globex-app', build='./globex', networks=['web'], restart='unless-stopped')
+    .svc('initech-app',build='./initech',networks=['web'], restart='unless-stopped')
+    .svc('caddy', **caddy_kw)
+    .svc('cloudflared', **cloudflared_svc())
+    .network('web').volume('caddy_data').volume('caddy_config'))
+
+print(dc)
+print('--- Caddyfile ---')
+print(open(f'{tmp}/Caddyfile').read())
+```
+
 ## Next steps
 
 The notebooks are executable specs — worth reading before shipping.
 
-- **`nbs/01_proxy.ipynb`** — live integration test: boots a FastHTML
-  app, tunnels it via Cloudflare, and asserts it’s reachable over the
-  internet. Shows the full
+- **`nbs/01_proxy.ipynb`** — live integration tests: boots FastHTML
+  apps, tunnels via Cloudflare, asserts reachable over the internet.
+  Covers the full
   [`caddy_svc`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc)
   /
   [`cloudflared_svc`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc)
   /
   [`crowdsec`](https://Karthik777.github.io/dockeasy/proxy.html#crowdsec)
-  surface area with every option.
+  surface area, plus an end-to-end SQLite routing test that builds the
+  custom Caddy image and verifies two-app subdomain routing.
 - **`nbs/00_core.ipynb`** — complete Dockerfile and Compose API,
   including multi-stage builds, framework builders, and container
   management.

@@ -10,7 +10,7 @@ __all__ = ['Caddyfile', 'caddy', 'caddy_api', 'caddy_svc', 'cloudflared_svc', 'c
 from fastcore.all import L, store_attr, listify, joins, Path
 from .core import *
 
-# %% ../nbs/01_proxy.ipynb #fe6aaa0167bca61e
+# %% ../nbs/01_proxy.ipynb #94648fec2ab8bd32
 class Caddyfile(L):
 	'Fluent builder for production-ready Caddyfiles'
 	def __init__(self, domain, app='app', port=5001):
@@ -79,18 +79,16 @@ class Caddyfile(L):
 		g = list(self._get('g'))
 		if g: parts.append('{\n\t' + '\n\t'.join(g) + '\n}')
 		prefix = 'http://' if self._has('f') else ''
-		site = [f'{prefix}{self.domain} {{'] + list(self._get('s'))
-		if self._has('spa'):
-			site += list(self._get('spa'))
+		site = [f'{prefix}{self.domain} {{'] + listify(self._get('s'))
+		if self._has('spa'): site += listify(self._get('spa'))
 		elif self._has('sqlite'):
-			db, query = list(self._get('sqlite'))[0]
+			db, query = listify(self._get('sqlite'))[0]
 			site.append(f'\troute {{\n\t\tsqlite_router {db} "{query}"\n\t\treverse_proxy {{http.vars.backend_upstream}}\n\t}}')
 		elif self._has('r'):
 			for path, app, port in self._get('r'):
 				site.append(f'\thandle {path} {{\n\t\treverse_proxy {app}:{port}\n\t}}')
 			site.append(f'\thandle {{\n\t\treverse_proxy {self.app}:{self.port}\n\t}}')
-		else:
-			site.append(f'\treverse_proxy {self.app}:{self.port}')
+		else: site.append(f'\treverse_proxy {self.app}:{self.port}')
 		site.append('}')
 		parts.append('\n'.join(site))
 		return '\n'.join(parts)
@@ -196,16 +194,17 @@ def crowdsec(collections=None, bouncer_key_env='CROWDSEC_BOUNCER_KEY', **kw):
 # %% ../nbs/01_proxy.ipynb #ccy4ciozn7n
 def caddy_sqlite_dockerfile():
     'Multi-stage Dockerfile: Caddy + caddy-sqlite-router plugin (requires CGO via xcaddy)'
-    return ('FROM caddy:2-builder AS builder\n'
-            'RUN apk add --no-cache gcc musl-dev\n'
-            'RUN CGO_ENABLED=1 xcaddy build --with github.com/AnswerDotAI/caddy-sqlite-router\n\n'
-            'FROM caddy:2-alpine\n'
-            'COPY --from=builder /usr/bin/caddy /usr/bin/caddy')
+    return (Dockerfile()
+            .from_('caddy:2-builder', as_='builder')
+            .run('apk add --no-cache gcc musl-dev')
+            .run('CGO_ENABLED=1 xcaddy build --with github.com/AnswerDotAI/caddy-sqlite-router')
+            .from_('caddy:2-alpine')
+            .copy('/usr/bin/caddy', '/usr/bin/caddy', from_='builder'))
 
-def caddy_sqlite_svc(domain, db='routes.db', image='caddy-sqlite:latest', *,
+def caddy_sqlite_svc(domain, db='/data/routes.db', image='caddy-sqlite:latest', *,
                      query="SELECT host, port FROM routes WHERE domain = :domain",
                      email=None, crowdsec=False, conf='Caddyfile', **kw):
-    'Caddy service with SQLite dynamic subdomain routing. Build image with caddy_sqlite_dockerfile().'
+    'Caddy service with SQLite dynamic subdomain routing. Build image with caddy_sqlite_dockerfile(). db is the in-container path; mount it via **kw volumes.'
     cf = Caddyfile(domain)
     if email: cf = cf.email(email)
     if crowdsec: cf = cf.crowdsec()

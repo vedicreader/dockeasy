@@ -1,0 +1,46 @@
+name: Build caddy-sqlite image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dockeasy/proxy.py'
+      - 'nbs/01_proxy.ipynb'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dockeasy
+        run: uv sync
+
+      - name: Generate Dockerfile from caddy_sqlite_dockerfile()
+        run: |
+          uv run python -c "
+          from dockeasy.proxy import caddy_sqlite_dockerfile
+          caddy_sqlite_dockerfile().save('Dockerfile')
+          "
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/vedicreader/caddy-sqlite:latest

@@ -7,10 +7,10 @@ name = "dockeasy"
 dynamic = ["version"]
 description = "docker made easy"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "Apache-2.0"}
 authors = [{name = "Karthik", email = "karthik.rajgopal@hotmail.com"}]
-keywords = ['nbdev', 'docker', 'compose', 'containers', 'podman']
+keywords = ['nbdev', 'docker', 'compose', 'containers', 'caddy', 'reverse proxy', 'web server', 'ssl', 'certificates']
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -23,8 +23,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/Karthik777/dockeasy"
-Documentation = "https://Karthik777.github.io/dockeasy/"
+Repository = "https://github.com/vedicreader/dockeasy"
+Documentation = "https://vedicreader.github.io/dockeasy/"
 
 [project.entry-points.nbdev]
 dockeasy = "dockeasy._modidx:d"
@@ -35,9 +35,18 @@ path = "dockeasy/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["dockeasy"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/dockeasy",
+    "/README.md",
+    "/pyproject.toml",
+]
+
 [tool.nbdev]
 
 [dependency-groups]
 dev = [
+    "ipyai>=0.0.8",
+    "koshas>=0.0.3",
     "nbdev>=3.0.12",
 ]
