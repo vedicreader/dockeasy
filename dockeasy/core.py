@@ -5,11 +5,12 @@
 # %% auto #0
 __all__ = ['fasthtml_app', 'mk_flags', 'Dockerfile', 'Cli', 'Docker', 'test', 'drun', 'containers', 'images', 'stop', 'logs',
            'rm', 'rmi', 'dict2str', 'service', 'Compose', 'python_app', 'fastapi_react', 'go_app', 'rust_app',
-           'node_app', 'detect_app', 'env_set', 'env_get', 'secret_set', 'secret_get', 'secrets']
+           'node_app', 'detect_app', 'env_set', 'env_get', 'secret_set', 'secret_get', 'secrets', 'repo_root',
+           'mv_skill_md']
 
 # %% ../nbs/00_core.ipynb #c7b52454175ab4d4
 import re, json, os, yaml, keyring, time
-from fastcore.all import listify, joins, is_listy, L, patch, concat, bind, Path, filter_values, run, merge, true
+from fastcore.all import listify, joins, is_listy, L, patch, concat, bind, Path, filter_values, run, merge, true, first
 
 # %% ../nbs/00_core.ipynb #t1qbqvj053
 def mk_flags(*a, short=True, sym='=', **kw):
@@ -402,3 +403,19 @@ def secret_get(key, service='fastops', default=None, path=None):
 def secrets(*keys, service='fastops', path=None):
     'Read multiple secrets from keychain/env into a dict. Warns and skips any that are missing.'
     return filter_values(merge(*L(keys).map(lambda k: {k:secret_get(k, service=service, path=path)})),true)
+
+# %% ../nbs/00_core.ipynb #1ba087b5
+def repo_root() -> Path:
+	'Find the root of the current git repository, or None if not in a repo.'
+	return first((Path.cwd(), *Path.cwd().parents), lambda p: (p/'.git').exists())
+
+def mv_skill_md(dry_run=True, dir=None) -> None:
+	'Copy bundled SKILL.md into `.agents/skills/dockeasy/` and `.claude/skills/dockeasy/` at project root or specified dir.'
+	base = Path(__file__).parent if '__file__' in globals() else Path.cwd()
+	if not (src := base.joinpath('SKILL.md')).exists(): return
+	root = Path(dir or repo_root() or '.')
+	ts = [root/'.agents/skills/dockeasy/SKILL.md', root/'.claude/skills/dockeasy/SKILL.md']
+	if dry_run: print(f'Would copy {src} to: {list(map(str,ts))}')
+	else:
+		for p in ts: p.mk_write(src.read_text(encoding='utf-8'))
+		print(f'Installed -> {list(map(str,ts))}')
