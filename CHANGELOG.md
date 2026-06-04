@@ -2,6 +2,11 @@
 
 <!-- do not remove -->
 
+## 0.0.5
+pip install uv
+
+
+
 ## 0.0.4
 skills
 

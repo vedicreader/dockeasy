@@ -276,7 +276,7 @@ class Compose(L):
 @patch
 def inst_uv(self:Dockerfile, req=False, wd='/app'):
 	'Single-stage uv install: copy uv binary and sync deps. req=True uses requirements.txt instead of pyproject.toml'
-	self = self.copy('/uv', '/usr/local/bin/uv', from_='ghcr.io/astral-sh/uv:latest')
+	self = self.run('pip install uv')
 	if req: return self.copy('requirements.txt', '.').run('uv pip install --system -r requirements.txt')
 	return self.copy('pyproject.toml', '.').run('uv sync --no-dev').env('PATH', f'{wd}/.venv/bin:$PATH')
 
