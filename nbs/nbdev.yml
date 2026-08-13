@@ -7,3 +7,8 @@ website:
   description: "docker made easy"
   repo-branch: main
   repo-url: "https://github.com/Karthik777/dockeasy"
+
+format-links:
+  - html
+  - format: commonmark
+    text: Markdown

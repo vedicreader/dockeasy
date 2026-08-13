@@ -397,8 +397,6 @@ def secret_set(key, value, service='fastops', save=True, path=None):
 
 def secret_get(key, service='fastops', default=None, path=None):
 	'Read secret: OS keychain → os.environ → fastops .env → default.'
-	# `get_password` returns None for a key it does not hold, which is not an exception -- so
-	# returning here on a falsy value skipped `env_get` entirely wherever a keychain works.
 	try: val = keyring.get_password(service, key)
 	except Exception: val = None
 	return val if val is not None else env_get(key, path=path, default=default)

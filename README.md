@@ -17,11 +17,7 @@ from dockeasy import *
 
 ## Dockerfiles in Python
 
-Build a
-[`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile)
-by chaining methods. Every call returns a new
-[`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile)
-— safe, immutable, and composable.
+Build a [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) by chaining methods. Every call returns a new [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) — safe, immutable, and composable.
 
 ``` python
 df = (Dockerfile()
@@ -46,8 +42,7 @@ print(df)
 
 ### Multi-stage builds
 
-Call `.from_()` again to start a new stage. Use `from_=` in `.copy()` to
-pull artifacts across stages.
+Call `.from_()` again to start a new stage. Use `from_=` in `.copy()` to pull artifacts across stages.
 
 ``` python
 df = (Dockerfile()
@@ -72,8 +67,7 @@ print(df)
 
 ### Build cache mounts
 
-`.run_mount()` adds `--mount=type=cache` for blazing-fast rebuilds with
-pip, uv, or apt.
+`.run_mount()` adds `--mount=type=cache` for blazing-fast rebuilds with pip, uv, or apt.
 
 ``` python
 df = (Dockerfile()
@@ -100,9 +94,7 @@ One-liners that generate production-ready Dockerfiles for common stacks.
 
 ### Python / uv app
 
-[`python_app()`](https://Karthik777.github.io/dockeasy/core.html#python_app)
-builds a multistage Dockerfile: uv compiles deps in a build stage, only
-the `.venv` is copied to the slim runtime.
+[`python_app()`](https://Karthik777.github.io/dockeasy/core.html#python_app) builds a multistage Dockerfile: uv compiles deps in a build stage, only the `.venv` is copied to the slim runtime.
 
 ``` python
 python_app()
@@ -226,8 +218,7 @@ node_app(static=True)
 
 ### Auto-detect your project
 
-[`detect_app()`](https://Karthik777.github.io/dockeasy/core.html#detect_app)
-sniffs the project directory and picks the right builder automatically.
+[`detect_app()`](https://Karthik777.github.io/dockeasy/core.html#detect_app) sniffs the project directory and picks the right builder automatically.
 
 ``` python
 def tmp(files):
@@ -254,11 +245,7 @@ for files, label in cases:
 
 ## Docker Compose
 
-The [`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose)
-builder mirrors the
-[`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile)
-API — chain `.svc()`, `.network()`, and `.volume()` calls, then render
-or save.
+The [`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose) builder mirrors the [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) API — chain `.svc()`, `.network()`, and `.volume()` calls, then render or save.
 
 ``` python
 dc = (Compose()
@@ -354,9 +341,7 @@ rm('my-nginx')
 
 ### Smoke-test an image
 
-[`test()`](https://Karthik777.github.io/dockeasy/core.html#test) runs a
-command inside the image and returns `True` if it exits 0 — handy for
-CI.
+[`test()`](https://Karthik777.github.io/dockeasy/core.html#test) runs a command inside the image and returns `True` if it exits 0 — handy for CI.
 
 ``` python
 assert test('python:3.12-slim', ['python', '-c', 'import sys; sys.exit(0)'])
@@ -365,8 +350,7 @@ assert not test('python:3.12-slim', ['python', '-c', 'raise SystemExit(1)'])
 
 ## Config & Secrets
 
-Store plain config (IPs, paths) and sensitive values (tokens, passwords)
-cleanly.
+Store plain config (IPs, paths) and sensitive values (tokens, passwords) cleanly.
 
 ``` python
 env_set('VPS_IP',    '1.2.3.4')
@@ -398,12 +382,8 @@ cfg
 
 ## Reverse Proxy
 
-[`caddy()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy)
-generates a Caddyfile as a Python object — chainable, printable,
-saveable.  
-[`caddy_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc)
-writes the file and hands back service kwargs you can drop straight into
-[`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose).
+[`caddy()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy) generates a Caddyfile as a Python object — chainable, printable, saveable.  
+[`caddy_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) writes the file and hands back service kwargs you can drop straight into [`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose).
 
 ``` python
 # Minimal: auto-TLS via Let's Encrypt
@@ -417,9 +397,7 @@ print(caddy('myapp.example.com', dns='cloudflare', email='me@example.com'))
 
 ### Zero open ports with Cloudflare Tunnel
 
-[`caddy_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) +
-[`cloudflared_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc)
-→ a production stack with no inbound firewall rules at all.  
+[`caddy_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) + [`cloudflared_svc()`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc) → a production stack with no inbound firewall rules at all.  
 Add `crowdsec=True` to either call to layer in IP reputation blocking.
 
 ``` python
@@ -439,15 +417,5 @@ print(dc)
 
 The notebooks are executable specs — worth reading before shipping.
 
-- **`nbs/01_proxy.ipynb`** — live integration test: boots a FastHTML
-  app, tunnels it via Cloudflare, and asserts it’s reachable over the
-  internet. Shows the full
-  [`caddy_svc`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc)
-  /
-  [`cloudflared_svc`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc)
-  /
-  [`crowdsec`](https://Karthik777.github.io/dockeasy/proxy.html#crowdsec)
-  surface area with every option.
-- **`nbs/00_core.ipynb`** — complete Dockerfile and Compose API,
-  including multi-stage builds, framework builders, and container
-  management.
+- **`nbs/01_proxy.ipynb`** — live integration test: boots a FastHTML app, tunnels it via Cloudflare, and asserts it’s reachable over the internet. Shows the full [`caddy_svc`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) / [`cloudflared_svc`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc) / [`crowdsec`](https://Karthik777.github.io/dockeasy/proxy.html#crowdsec) surface area with every option.
+- **`nbs/00_core.ipynb`** — complete Dockerfile and Compose API, including multi-stage builds, framework builders, and container management.
