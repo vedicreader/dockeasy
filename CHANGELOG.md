@@ -2,6 +2,9 @@
 
 <!-- do not remove -->
 
+## 0.0.6
+secrets fixed
+
 ## 0.0.5
 pip install uv
 
@@ -25,5 +28,3 @@ caddy, crowdsec and cloudflared
 
 ## 0.0.1
 initial release
-
-
