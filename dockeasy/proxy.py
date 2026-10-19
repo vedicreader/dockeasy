@@ -62,9 +62,10 @@ class Caddyfile(L):
 		return self._add(('s', '\tencode'))
 
 	def log(self, output='stderr'):
-		'Turn on access logging, to stderr or to the Caddy log `output` given.'
-		out = f'output {output}' if output != 'stderr' else ''
-		return self._add(('s', f'\tlog {{\n\t\t{out}\n\t}}' if out else '\tlog'))
+		'Turn on access logging to `output`: a Caddy log writer such as `stdout` or `net <addr>`, or a file path.'
+		if output == 'stderr': return self._add(('s', '\tlog'))
+		if output.split()[0] not in ('stdout', 'discard', 'file', 'net'): output = f'file {output}'
+		return self._add(('s', f'\tlog {{\n\t\toutput {output}\n\t}}'))
 
 	def __str__(self):
 		'Render the Caddyfile text.'

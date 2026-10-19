@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.7
+- `pyyaml` is a declared dependency
+- `Caddyfile.log(output=path)` writes `output file <path>`, which Caddy accepts
+
 ## 0.0.6
 secrets fixed
 

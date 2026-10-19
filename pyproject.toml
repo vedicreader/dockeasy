@@ -19,6 +19,7 @@ dependencies = [
     "fastcore>=1.12.30",
     "keyring>=25.7.0",
     "python-dotenv>=1.2.2",
+    "pyyaml>=6.0",
     "notebook",
 ]
 
