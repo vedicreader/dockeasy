@@ -56,7 +56,7 @@ class Caddyfile(L):
 
 	def crowdsec(self, api_url='http://crowdsec:8080', key_env='CROWDSEC_API_KEY'):
 		'Check visitors with the CrowdSec agent at `api_url`, using the key in the `key_env` variable; needs the CrowdSec plugin.'
-		return self._add(('s', f'\tcrowdsec {{\n\t\tapi_url {api_url}\n\t\tapi_key {{${key_env}}}\n\t}}'))
+		return self._add(('g', 'order crowdsec first'), ('g', f'crowdsec {{\n\t\tapi_url {api_url}\n\t\tapi_key {{${key_env}}}\n\t}}'), ('s', '\tcrowdsec'))
 
 	def rate_limit(self, requests='100', window='1m'):
 		'Allow each client IP address `requests` requests per `window`; needs the rate limit plugin.'

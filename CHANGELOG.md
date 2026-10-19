@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.11
+- `Caddyfile.crowdsec` writes the global `order crowdsec first` that Caddy needs to place the plugin's handler, moves `api_url` and `api_key` into a global `crowdsec` block, where the plugin reads them, and leaves a bare `crowdsec` in the site block
+- `python_app`, `fasthtml_app` and `fastapi_react` health checks use a Python `urllib` one-liner instead of curl, which the slim image lacks, unless `pkgs` installs curl
+
 ## 0.0.10
 - `FASTOPS_ENV` names the default `.env` file `env_set` and `env_get` use; `_FASTOPS_ENV` remains as an alias
 

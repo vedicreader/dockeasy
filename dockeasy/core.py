@@ -317,6 +317,11 @@ def packages(self:Dockerfile, *pkgs):
 	return self.apt_install(*pkgs) if pkgs else self
 
 # %% ../nbs/00_core.ipynb #e17b41b26d006536
+def _probe(port, path, pkgs=None):
+    'The health check command for `path` on `port`: curl when `pkgs` installs it, else Python, since slim images have no curl.'
+    u = f'http://localhost:{port}{path}'
+    return f'curl -f {u}' if 'curl' in listify(pkgs) else ['python', '-c', f"import urllib.request; urllib.request.urlopen('{u}', timeout=4)"]
+
 def python_app(port=8000, cmd=None, im='python:3.13-slim', wd='/app', pkgs=None,
     vols=None, multistage=True, uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm', healthcheck=None, req=False,
     lock=False, bytecode=False, ports=1, pre=None, mid=None, compile=None):
@@ -330,7 +335,7 @@ def python_app(port=8000, cmd=None, im='python:3.13-slim', wd='/app', pkgs=None,
         df = df.inst_uv(req=req, wd=wd, lock=lock, bytecode=bytecode, deps_first=lock and not req, mid=mid, compile=compile)
         if req or not lock: df = df.copy('.', '.')
     if vols: df = df.run('mkdir -p ' + ' '.join(listify(vols)))
-    if healthcheck: df = df.healthcheck(f'curl -f http://localhost:{port}{healthcheck}', i='30s', t='5s', r='3')
+    if healthcheck: df = df.healthcheck(_probe(port, healthcheck, pkgs), i='30s', t='5s', r='3')
     _cmd = cmd or ['python', 'main.py']
     return df.expose(' '.join(str(port + i) for i in range(ports))).cmd(_cmd if isinstance(_cmd, list) else _cmd.split())
 
@@ -344,7 +349,7 @@ def fastapi_react(port=8000, node_version='20', frontend_dir='frontend', build_d
     if multistage: df = df.with_uv(uv_image, image, '/app').copy('/app', '/app', from_='builder').env('PATH', '/app/.venv/bin:$PATH').packages(*listify(pkgs))
     else: df = df.from_(image).workdir('/app').packages(*listify(pkgs)).inst_uv(wd='/app').copy('.', '.')
     df = df.copy(f'/build/{build_dir}', '/app/static', from_='frontend')
-    if healthcheck: df = df.healthcheck(f'curl -f http://localhost:{port}{healthcheck}', i='30s', t='5s', r='3')
+    if healthcheck: df = df.healthcheck(_probe(port, healthcheck, pkgs), i='30s', t='5s', r='3')
     return df.expose(port).cmd(['uvicorn', 'main:app', '--host', '0.0.0.0', f'--port={port}'])
 
 def go_app(port=8080, go_version='1.22', binary='app', runtime='gcr.io/distroless/static', cmd=None, cgo=False):
