@@ -2,8 +2,8 @@
 
 d = { 'settings': { 'branch': 'main',
                 'doc_baseurl': '/dockeasy',
-                'doc_host': 'https://Karthik777.github.io',
-                'git_url': 'https://github.com/Karthik777/dockeasy',
+                'doc_host': 'https://vedicreader.github.io',
+                'git_url': 'https://github.com/vedicreader/dockeasy',
                 'lib_path': 'dockeasy'},
   'syms': { 'dockeasy.core': { 'dockeasy.core.Cli': ('core.html#cli', 'dockeasy/core.py'),
                                'dockeasy.core.Cli.__call__': ('core.html#cli.__call__', 'dockeasy/core.py'),

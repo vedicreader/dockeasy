@@ -7,7 +7,7 @@ dockeasy writes the files you need to ship an app in Docker containers, and runs
 
 A Dockerfile is the recipe Docker follows to build an image: a base image to start from, files to copy in, commands to run, and the command to start. A container is a running copy of an image. A Compose file, `docker-compose.yml`, describes several containers that run together, such as a web app, its database and a proxy in front of them, and each of those is called a service. Writing these files by hand means remembering their syntax and quoting rules. With dockeasy you build each one with ordinary Python method calls, print it to check it, and save it.
 
-[`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) and [`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose) write the two files. Builders such as [`python_app`](https://Karthik777.github.io/dockeasy/core.html#python_app) and [`go_app`](https://Karthik777.github.io/dockeasy/core.html#go_app) return a ready-made Dockerfile for a common kind of project, and [`detect_app`](https://Karthik777.github.io/dockeasy/core.html#detect_app) picks one by looking at your project’s files. The proxy helpers write a Caddyfile, the config for the Caddy web server, which takes requests from the internet, handles HTTPS certificates and passes the requests on to your app. Around these sit thin wrappers over the `docker` command for building images and running containers, and a small store for config values and secrets.
+[`Dockerfile`](https://vedicreader.github.io/dockeasy/core.html#dockerfile) and [`Compose`](https://vedicreader.github.io/dockeasy/core.html#compose) write the two files. Builders such as [`python_app`](https://vedicreader.github.io/dockeasy/core.html#python_app) and [`go_app`](https://vedicreader.github.io/dockeasy/core.html#go_app) return a ready-made Dockerfile for a common kind of project, and [`detect_app`](https://vedicreader.github.io/dockeasy/core.html#detect_app) picks one by looking at your project’s files. The proxy helpers write a Caddyfile, the config for the Caddy web server, which takes requests from the internet, handles HTTPS certificates and passes the requests on to your app. Around these sit thin wrappers over the `docker` command for building images and running containers, and a small store for config values and secrets.
 
 ## Install
 
@@ -23,9 +23,9 @@ from dockeasy import *
 
 ## Dockerfiles in Python
 
-Start with an empty [`Dockerfile()`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) and call one method per instruction. `from_` sets the base image, with a trailing underscore because `from` is a Python keyword. `copy` copies files from your project into the image, `run` runs a shell command while the image is built, `expose` records the port the app listens on, and `cmd` sets the command the container runs when it starts. Printing the object shows the file it will write.
+Start with an empty [`Dockerfile()`](https://vedicreader.github.io/dockeasy/core.html#dockerfile) and call one method per instruction. `from_` sets the base image, with a trailing underscore because `from` is a Python keyword. `copy` copies files from your project into the image, `run` runs a shell command while the image is built, `expose` records the port the app listens on, and `cmd` sets the command the container runs when it starts. Printing the object shows the file it will write.
 
-Each method returns a new [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) and leaves the one you called it on unchanged, so you can keep a base recipe in a variable and extend it in different ways.
+Each method returns a new [`Dockerfile`](https://vedicreader.github.io/dockeasy/core.html#dockerfile) and leaves the one you called it on unchanged, so you can keep a base recipe in a variable and extend it in different ways.
 
 ``` python
 df = (Dockerfile()
@@ -98,11 +98,11 @@ print(df)
 
 ## Ready-made Dockerfiles
 
-For common kinds of project you do not need to write the Dockerfile yourself. Each function below returns a complete [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile), which you can print, extend with more method calls, or save.
+For common kinds of project you do not need to write the Dockerfile yourself. Each function below returns a complete [`Dockerfile`](https://vedicreader.github.io/dockeasy/core.html#dockerfile), which you can print, extend with more method calls, or save.
 
 ### Python with uv
 
-[`python_app`](https://Karthik777.github.io/dockeasy/core.html#python_app) is for a Python project managed with [uv](https://docs.astral.sh/uv/), with a `pyproject.toml` and a `uv.lock`. By default it writes a two-stage build. The first stage runs in uv’s own image and installs your locked dependencies into a `.venv` folder. The second stage starts from `python:3.13-slim` and copies the app folder across, `.venv` included, so uv itself stays behind. The container runs `python main.py` on port 8000; `cmd` and `port` change them.
+[`python_app`](https://vedicreader.github.io/dockeasy/core.html#python_app) is for a Python project managed with [uv](https://docs.astral.sh/uv/), with a `pyproject.toml` and a `uv.lock`. By default it writes a two-stage build. The first stage runs in uv’s own image and installs your locked dependencies into a `.venv` folder. The second stage starts from `python:3.13-slim` and copies the app folder across, `.venv` included, so uv itself stays behind. The container runs `python main.py` on port 8000; `cmd` and `port` change them.
 
 ``` python
 python_app()
@@ -152,7 +152,7 @@ python_app(pkgs=['libpq-dev', 'curl'], vols=['/app/data'], healthcheck='/health'
 
 ### FastHTML app
 
-`fasthtml_app` is [`python_app`](https://Karthik777.github.io/dockeasy/core.html#python_app) with the settings a [FastHTML](https://fastht.ml) app usually needs: port 5001, the command `python app.py`, and a single-stage build. You can still override any of them.
+`fasthtml_app` is [`python_app`](https://vedicreader.github.io/dockeasy/core.html#python_app) with the settings a [FastHTML](https://fastht.ml) app usually needs: port 5001, the command `python app.py`, and a single-stage build. You can still override any of them.
 
 ``` python
 fasthtml_app()
@@ -170,7 +170,7 @@ fasthtml_app()
 
 ### Go app
 
-[`go_app`](https://Karthik777.github.io/dockeasy/core.html#go_app) downloads the modules and compiles a static binary in `golang:1.22-alpine`, then copies only the binary into `gcr.io/distroless/static`, a minimal image with no shell or package manager. The app listens on port 8080, and `binary` names the output file.
+[`go_app`](https://vedicreader.github.io/dockeasy/core.html#go_app) downloads the modules and compiles a static binary in `golang:1.22-alpine`, then copies only the binary into `gcr.io/distroless/static`, a minimal image with no shell or package manager. The app listens on port 8080, and `binary` names the output file.
 
 ``` python
 go_app()
@@ -191,7 +191,7 @@ go_app()
 
 ### Rust app
 
-[`rust_app`](https://Karthik777.github.io/dockeasy/core.html#rust_app) runs `cargo build --release`, with Cargo’s package registry cached between builds, and copies `target/release/app` into a distroless image. Set `binary` if your binary is not called `app`, and `features` to build with Cargo features turned on.
+[`rust_app`](https://vedicreader.github.io/dockeasy/core.html#rust_app) runs `cargo build --release`, with Cargo’s package registry cached between builds, and copies `target/release/app` into a distroless image. Set `binary` if your binary is not called `app`, and `features` to build with Cargo features turned on.
 
 ``` python
 rust_app()
@@ -208,7 +208,7 @@ rust_app()
 
 ### Node.js app
 
-[`node_app`](https://Karthik777.github.io/dockeasy/core.html#node_app) installs dependencies with `npm ci` and runs `node index.js` on port 3000. With `static=True` it is for a site that compiles to static files instead: it runs `npm run build`, then serves the `dist` folder with the `serve` package from a fresh image.
+[`node_app`](https://vedicreader.github.io/dockeasy/core.html#node_app) installs dependencies with `npm ci` and runs `node index.js` on port 3000. With `static=True` it is for a site that compiles to static files instead: it runs `npm run build`, then serves the `dist` folder with the `serve` package from a fresh image.
 
 ``` python
 # Two-stage: build → serve static output
@@ -230,16 +230,16 @@ node_app(static=True)
 
 ### Pick a builder from the project’s files
 
-[`detect_app`](https://Karthik777.github.io/dockeasy/core.html#detect_app) looks at the files in a project folder and calls the matching builder. It checks in this order:
+[`detect_app`](https://vedicreader.github.io/dockeasy/core.html#detect_app) looks at the files in a project folder and calls the matching builder. It checks in this order:
 
 | files found | builder |
 |----|----|
-| `Cargo.toml` | [`rust_app`](https://Karthik777.github.io/dockeasy/core.html#rust_app) |
-| `go.mod` | [`go_app`](https://Karthik777.github.io/dockeasy/core.html#go_app) |
-| `package.json` with `pyproject.toml` or `requirements.txt` | [`fastapi_react`](https://Karthik777.github.io/dockeasy/core.html#fastapi_react), a Node frontend with a Python backend |
-| `package.json` alone | [`node_app`](https://Karthik777.github.io/dockeasy/core.html#node_app) |
+| `Cargo.toml` | [`rust_app`](https://vedicreader.github.io/dockeasy/core.html#rust_app) |
+| `go.mod` | [`go_app`](https://vedicreader.github.io/dockeasy/core.html#go_app) |
+| `package.json` with `pyproject.toml` or `requirements.txt` | [`fastapi_react`](https://vedicreader.github.io/dockeasy/core.html#fastapi_react), a Node frontend with a Python backend |
+| `package.json` alone | [`node_app`](https://vedicreader.github.io/dockeasy/core.html#node_app) |
 | `pyproject.toml` that mentions `python-fasthtml` | `fasthtml_app` |
-| any other `pyproject.toml` | [`python_app`](https://Karthik777.github.io/dockeasy/core.html#python_app) |
+| any other `pyproject.toml` | [`python_app`](https://vedicreader.github.io/dockeasy/core.html#python_app) |
 | `requirements.txt` alone | `python_app(multistage=False, req=True)` |
 
 It raises `ValueError` if none of these files is there. Extra keyword arguments go to the builder it picks. The example below makes a temporary folder for some of the cases and shows which builder each one gets:
@@ -269,9 +269,9 @@ for files, label in cases:
 
 ## Docker Compose
 
-[`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose) writes a `docker-compose.yml` in the same way that [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) writes a Dockerfile. `svc` adds a service. Give it either `image`, a published image to run, or `build`, the folder holding the Dockerfile to build. `ports` maps host ports to container ports, `env` sets environment variables, `volumes` attaches named volumes or host folders at paths inside the container, and `depends_on` names services that must start first. Any other keyword, such as `networks` or `restart`, is copied into the service unchanged. `network` and `volume` declare the networks and named volumes that the services use.
+[`Compose`](https://vedicreader.github.io/dockeasy/core.html#compose) writes a `docker-compose.yml` in the same way that [`Dockerfile`](https://vedicreader.github.io/dockeasy/core.html#dockerfile) writes a Dockerfile. `svc` adds a service. Give it either `image`, a published image to run, or `build`, the folder holding the Dockerfile to build. `ports` maps host ports to container ports, `env` sets environment variables, `volumes` attaches named volumes or host folders at paths inside the container, and `depends_on` names services that must start first. Any other keyword, such as `networks` or `restart`, is copied into the service unchanged. `network` and `volume` declare the networks and named volumes that the services use.
 
-The `api` service below passes a [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) object as `build`, which `svc` writes as `build: .`, meaning the current folder. `python_app().save()` writes that Dockerfile into the current folder and the final `.save()` writes `docker-compose.yml` there too, so running this cell leaves both files next to the notebook.
+The `api` service below passes a [`Dockerfile`](https://vedicreader.github.io/dockeasy/core.html#dockerfile) object as `build`, which `svc` writes as `build: .`, meaning the current folder. `python_app().save()` writes that Dockerfile into the current folder and the final `.save()` writes `docker-compose.yml` there too, so running this cell leaves both files next to the notebook.
 
 ``` python
 dc = (Compose()
@@ -329,7 +329,7 @@ dc.down(v=True)                # docker compose down -v
 
 These functions wrap the `docker` command so that a script or notebook can build an image, run it and clean up without leaving Python. They need Docker installed and running, so these cells are not run when the docs are built, and the outputs shown come from an earlier run.
 
-[`Dockerfile.build`](https://Karthik777.github.io/dockeasy/core.html#dockerfile.build) saves the Dockerfile into the folder `path` and builds it with `docker compose build`, which uses the Docker daemon’s own BuildKit, so the separate buildx plugin is not needed. It returns the tag. `no_creds=True` builds with a copy of your Docker config that has the credential helpers removed. [`drun`](https://Karthik777.github.io/dockeasy/core.html#drun) runs a container and returns what it printed, and [`rmi`](https://Karthik777.github.io/dockeasy/core.html#rmi) removes an image:
+[`Dockerfile.build`](https://vedicreader.github.io/dockeasy/core.html#dockerfile.build) saves the Dockerfile into the folder `path` and builds it with `docker compose build`, which uses the Docker daemon’s own BuildKit, so the separate buildx plugin is not needed. It returns the tag. `no_creds=True` builds with a copy of your Docker config that has the credential helpers removed. [`drun`](https://vedicreader.github.io/dockeasy/core.html#drun) runs a container and returns what it printed, and [`rmi`](https://vedicreader.github.io/dockeasy/core.html#rmi) removes an image:
 
 ``` python
 tmp = tempfile.mkdtemp()
@@ -351,7 +351,7 @@ print('Cleaned up.')
     hello from docker
     Cleaned up.
 
-With `detach=True`, [`drun`](https://Karthik777.github.io/dockeasy/core.html#drun) starts the container in the background and returns its ID. `ports` maps container ports to host ports, the other way round from Compose: `{'80/tcp': 8080}` makes the container’s port 80 reachable on port 8080 of your machine. With `check=True`, the default, [`drun`](https://Karthik777.github.io/dockeasy/core.html#drun) watches the container for up to two seconds and raises `RuntimeError`, with the container’s logs, if it stops in that time. [`containers`](https://Karthik777.github.io/dockeasy/core.html#containers) lists the names of running containers, [`logs`](https://Karthik777.github.io/dockeasy/core.html#logs) returns the last `n` lines of a container’s log, and [`stop`](https://Karthik777.github.io/dockeasy/core.html#stop) and [`rm`](https://Karthik777.github.io/dockeasy/core.html#rm) stop and remove it:
+With `detach=True`, [`drun`](https://vedicreader.github.io/dockeasy/core.html#drun) starts the container in the background and returns its ID. `ports` maps container ports to host ports, the other way round from Compose: `{'80/tcp': 8080}` makes the container’s port 80 reachable on port 8080 of your machine. With `check=True`, the default, [`drun`](https://vedicreader.github.io/dockeasy/core.html#drun) watches the container for up to two seconds and raises `RuntimeError`, with the container’s logs, if it stops in that time. [`containers`](https://vedicreader.github.io/dockeasy/core.html#containers) lists the names of running containers, [`logs`](https://vedicreader.github.io/dockeasy/core.html#logs) returns the last `n` lines of a container’s log, and [`stop`](https://vedicreader.github.io/dockeasy/core.html#stop) and [`rm`](https://vedicreader.github.io/dockeasy/core.html#rm) stop and remove it:
 
 ``` python
 # Start a named, detached container with port mapping
@@ -373,7 +373,7 @@ rm('my-nginx')
 
 ### Smoke-test an image
 
-[`test`](https://Karthik777.github.io/dockeasy/core.html#test) runs a command in a throwaway container from an image and returns `True` if the command exits with status 0, and `False` otherwise. It is a quick check, in CI for example, that an image starts and has what your app needs:
+[`test`](https://vedicreader.github.io/dockeasy/core.html#test) runs a command in a throwaway container from an image and returns `True` if the command exits with status 0, and `False` otherwise. It is a quick check, in CI for example, that an image starts and has what your app needs:
 
 ``` python
 assert test('python:3.12-slim', ['python', '-c', 'import sys; sys.exit(0)'])
@@ -382,7 +382,7 @@ assert not test('python:3.12-slim', ['python', '-c', 'raise SystemExit(1)'])
 
 ## Config and secrets
 
-Deploy scripts need settings such as a server’s IP address, and secrets such as API tokens, and these should not be written into the code. [`env_set`](https://Karthik777.github.io/dockeasy/core.html#env_set) saves a value in `~/.config/fastops/.env`, a file only you can read, and also sets it in `os.environ` so the running process sees it straight away. [`env_get`](https://Karthik777.github.io/dockeasy/core.html#env_get) reads `os.environ` first and falls back to the file:
+Deploy scripts need settings such as a server’s IP address, and secrets such as API tokens, and these should not be written into the code. [`env_set`](https://vedicreader.github.io/dockeasy/core.html#env_set) saves a value in `~/.config/fastops/.env`, a file only you can read, and also sets it in `os.environ` so the running process sees it straight away. [`env_get`](https://vedicreader.github.io/dockeasy/core.html#env_get) reads `os.environ` first and falls back to the file:
 
 ``` python
 env_set('VPS_IP',    '1.2.3.4')
@@ -395,7 +395,7 @@ print(env_get('APP_NAME'))
     1.2.3.4
     my-app
 
-[`secret_set`](https://Karthik777.github.io/dockeasy/core.html#secret_set) is for sensitive values. It stores the value in the system keychain through the `keyring` package, such as the macOS Keychain, and quietly skips that step on a machine with no keychain, as on most servers. Unless you pass `save=False`, it also writes the value to the same `.env` file and to `os.environ`. [`secret_get`](https://Karthik777.github.io/dockeasy/core.html#secret_get) looks in the keychain first, then `os.environ`, then the file, and returns `default` if none of them has the key.
+[`secret_set`](https://vedicreader.github.io/dockeasy/core.html#secret_set) is for sensitive values. It stores the value in the system keychain through the `keyring` package, such as the macOS Keychain, and quietly skips that step on a machine with no keychain, as on most servers. Unless you pass `save=False`, it also writes the value to the same `.env` file and to `os.environ`. [`secret_get`](https://vedicreader.github.io/dockeasy/core.html#secret_get) looks in the keychain first, then `os.environ`, then the file, and returns `default` if none of them has the key.
 
 ``` python
 # Stored in OS keychain on macOS; env var fallback on Linux/CI
@@ -405,7 +405,7 @@ print(secret_get('FOO'))
 
     bar
 
-[`secrets`](https://Karthik777.github.io/dockeasy/core.html#secrets) reads several keys at once and returns a dict of the ones that have a value. Missing keys are left out without a warning.
+[`secrets`](https://vedicreader.github.io/dockeasy/core.html#secrets) reads several keys at once and returns a dict of the ones that have a value. Missing keys are left out without a warning.
 
 ``` python
 # Read multiple secrets at once — missing keys are silently skipped
@@ -420,7 +420,7 @@ cfg
 
 A reverse proxy sits in front of your app and receives the requests that arrive from the internet. Caddy is a web server that does this job and also fetches and renews HTTPS certificates for your domain from Let’s Encrypt on its own, using the ACME protocol. You configure it with a file called a Caddyfile.
 
-[`caddy`](https://Karthik777.github.io/dockeasy/proxy.html#caddy) returns a [`Caddyfile`](https://Karthik777.github.io/dockeasy/proxy.html#caddyfile) object for a domain. Unless you say otherwise, it forwards requests to the service called `app` on port 5001. Print it to see the file, or call `.save()` to write it. The simplest one is a single site block with a `reverse_proxy` line:
+[`caddy`](https://vedicreader.github.io/dockeasy/proxy.html#caddy) returns a [`Caddyfile`](https://vedicreader.github.io/dockeasy/proxy.html#caddyfile) object for a domain. Unless you say otherwise, it forwards requests to the service called `app` on port 5001. Print it to see the file, or call `.save()` to write it. The simplest one is a single site block with a `reverse_proxy` line:
 
 ``` python
 # Minimal: auto-TLS via Let's Encrypt
@@ -431,7 +431,7 @@ print(caddy('myapp.example.com'))
         reverse_proxy app:5001
     }
 
-To issue a certificate, Let’s Encrypt normally connects to your server on port 80 to check that you control the domain. When that port is closed, Caddy can prove control with a DNS-01 challenge instead, by creating a DNS record through your DNS provider’s API. Pass the provider as `dns`. Caddy reads the API token from an environment variable, `CLOUDFLARE_API_TOKEN` here, and `dns_token_env` names a different one. `email` is the address Let’s Encrypt can write to about your certificates. The official Caddy image has no DNS provider plugins, which is why [`caddy_svc`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) below switches to an image that has the Cloudflare one.
+To issue a certificate, Let’s Encrypt normally connects to your server on port 80 to check that you control the domain. When that port is closed, Caddy can prove control with a DNS-01 challenge instead, by creating a DNS record through your DNS provider’s API. Pass the provider as `dns`. Caddy reads the API token from an environment variable, `CLOUDFLARE_API_TOKEN` here, and `dns_token_env` names a different one. `email` is the address Let’s Encrypt can write to about your certificates. The official Caddy image has no DNS provider plugins, which is why [`caddy_svc`](https://vedicreader.github.io/dockeasy/proxy.html#caddy_svc) below switches to an image that has the Cloudflare one.
 
 ``` python
 # DNS-01 wildcard cert — works even when port 80 is closed
@@ -452,7 +452,7 @@ print(caddy('myapp.example.com', dns='cloudflare', email='me@example.com'))
 
 A Cloudflare Tunnel lets visitors reach your server without opening any inbound port. A program called `cloudflared` runs in a container next to your app, makes an outgoing connection to Cloudflare, and receives your site’s traffic over it. Cloudflare serves HTTPS to the visitor, so Caddy only needs to speak plain HTTP.
 
-[`caddy_svc`](https://Karthik777.github.io/dockeasy/proxy.html#caddy_svc) writes the Caddyfile to `conf` and returns the settings for a Caddy service, ready to pass to [`Compose.svc`](https://Karthik777.github.io/dockeasy/core.html#compose.svc) with `**`. With `cloudflared=True` the Caddyfile serves plain `http://` and the service publishes no ports. [`cloudflared_svc`](https://Karthik777.github.io/dockeasy/proxy.html#cloudflared_svc) returns the settings for the tunnel container, which reads its token from the `CF_TUNNEL_TOKEN` environment variable on the host. Both services join a network called `web`, and Caddy keeps its certificates and state in the `caddy_data` and `caddy_config` volumes, so the Compose file declares all three. To add CrowdSec, which blocks IP addresses known for attacks, see `caddy_svc(crowdsec=True)` and [`crowdsec`](https://Karthik777.github.io/dockeasy/proxy.html#crowdsec) on the proxy page.
+[`caddy_svc`](https://vedicreader.github.io/dockeasy/proxy.html#caddy_svc) writes the Caddyfile to `conf` and returns the settings for a Caddy service, ready to pass to [`Compose.svc`](https://vedicreader.github.io/dockeasy/core.html#compose.svc) with `**`. With `cloudflared=True` the Caddyfile serves plain `http://` and the service publishes no ports. [`cloudflared_svc`](https://vedicreader.github.io/dockeasy/proxy.html#cloudflared_svc) returns the settings for the tunnel container, which reads its token from the `CF_TUNNEL_TOKEN` environment variable on the host. Both services join a network called `web`, and Caddy keeps its certificates and state in the `caddy_data` and `caddy_config` volumes, so the Compose file declares all three. To add CrowdSec, which blocks IP addresses known for attacks, see `caddy_svc(crowdsec=True)` and [`crowdsec`](https://vedicreader.github.io/dockeasy/proxy.html#crowdsec) on the proxy page.
 
 ``` python
 import tempfile
@@ -502,5 +502,5 @@ print(dc)
 
 The two module pages go further, and every example on them runs as a test.
 
-- [core](core.html) covers the whole [`Dockerfile`](https://Karthik777.github.io/dockeasy/core.html#dockerfile) and [`Compose`](https://Karthik777.github.io/dockeasy/core.html#compose) API, the ready-made builders, the container functions and the config store.
+- [core](core.html) covers the whole [`Dockerfile`](https://vedicreader.github.io/dockeasy/core.html#dockerfile) and [`Compose`](https://vedicreader.github.io/dockeasy/core.html#compose) API, the ready-made builders, the container functions and the config store.
 - [proxy](proxy.html) covers every Caddyfile option, the CrowdSec security service and five complete stacks. It ends with a live test that starts a FastHTML app behind Caddy and a Cloudflare Tunnel and fetches it over the internet.

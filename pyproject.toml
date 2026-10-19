@@ -23,8 +23,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/Karthik777/dockeasy"
-Documentation = "https://Karthik777.github.io/dockeasy/"
+Repository = "https://github.com/vedicreader/dockeasy"
+Documentation = "https://vedicreader.github.io/dockeasy/"
 
 [project.entry-points.nbdev]
 dockeasy = "dockeasy._modidx:d"
