@@ -61,11 +61,14 @@ class Caddyfile(L):
 		'Turn on response compression, which Caddy leaves off by default.'
 		return self._add(('s', '\tencode'))
 
-	def log(self, output='stderr'):
-		'Turn on access logging to `output`: a Caddy log writer such as `stdout` or `net <addr>`, or a file path.'
-		if output == 'stderr': return self._add(('s', '\tlog'))
-		if output.split()[0] not in ('stdout', 'discard', 'file', 'net'): output = f'file {output}'
-		return self._add(('s', f'\tlog {{\n\t\toutput {output}\n\t}}'))
+	def log(self, output='stderr', roll_size=None, roll_keep=None, roll_keep_for=None, format=None):
+		'Turn on access logging to `output`, a Caddy log writer or a file path; `roll_*` rotate a file output.'
+		if output.split()[0] not in ('stderr', 'stdout', 'discard', 'file', 'net'): output = f'file {output}'
+		roll = [f'\t\t\t{k} {v}' for k,v in dict(roll_size=roll_size, roll_keep=roll_keep, roll_keep_for=roll_keep_for).items() if v is not None]
+		if roll and not output.startswith('file '): raise ValueError('roll_size, roll_keep and roll_keep_for need a file output')
+		body = [f'\t\toutput {output}' + (' {\n' + '\n'.join(roll) + '\n\t\t}' if roll else '')] if output != 'stderr' else []
+		if format: body.append(f'\t\tformat {format}')
+		return self._add(('s', '\tlog {\n' + '\n'.join(body) + '\n\t}' if body else '\tlog'))
 
 	def __str__(self):
 		'Render the Caddyfile text.'
