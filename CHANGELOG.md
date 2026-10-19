@@ -2,6 +2,9 @@
 
 <!-- do not remove -->
 
+## 0.0.10
+- `FASTOPS_ENV` names the default `.env` file `env_set` and `env_get` use; `_FASTOPS_ENV` remains as an alias
+
 ## 0.0.9
 - `Caddyfile.cloudflared` also trusts private-range proxies and reads the client address from `Cf-Connecting-Ip`, in a global `servers` block
 - `Caddyfile.encode` takes the encodings in order, as in `encode('zstd', 'gzip')`
