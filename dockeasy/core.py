@@ -1,4 +1,4 @@
-"""Dockerfile generation, image building, container running, and testing
+"""Write Dockerfiles and Compose files, build and run containers, and store config and secrets.
 
 Docs: https://Karthik777.github.io/dockeasy/core.html.md"""
 
@@ -16,7 +16,7 @@ from fastcore.all import listify, joins, is_listy, L, patch, concat, bind, Path,
 
 # %% ../nbs/00_core.ipynb #t1qbqvj053
 def mk_flags(*a, short=True, sym='=', **kw):
-    'Build CLI flag list: single-char kwargs → -k [v], multi-char → --key[=v]. short=False: all keys use --key[=v]'
+    'Turn keyword arguments into command-line flags: one-letter keys become `-k [value]` and longer keys `--key[=value]`.'
     k2f = lambda k: f'--{k.rstrip("_").replace("_","-")}'
     flags, sc, uv, vt = list(a), lambda k: len(k) == 1, lambda v: v not in (True, False, None), lambda v: v is True
     if short:
@@ -73,7 +73,7 @@ def _parse(path_or_str: Path | str):
 
 # %% ../nbs/00_core.ipynb #77afa11b44a44293
 class Dockerfile(L):
-    'Fluent builder for Dockerfiles'
+    'Build a Dockerfile one instruction at a time; each method returns a new Dockerfile.'
     @classmethod
     def load(cls, path:Path=Path('Dockerfile')): return cls(_parse(Path(path)))
     def from_(self, base, tag=None, as_=None): return self._add(_from(base, tag, as_))
@@ -98,19 +98,19 @@ class Dockerfile(L):
 	    return self._add(_apt_install(*pkgs, y=y, clean=clean))
 
     def run_mount(self, cmd, type='cache', target=None, **kw):
-        'RUN --mount=... for build cache mounts (uv, pip, apt) and secrets'
+        'Add a `RUN --mount=...` line, by default a cache mount at `target`; extra keywords become mount options.'
         opts = f'type={type}'
         if target: opts += f',target={target}'
         for k, v in kw.items(): opts += f',{k.replace("_", "-")}={v}'
         return self._add(f'RUN --mount={opts} {cmd}')
 
     def __call__(self, inst, *args, **kw):
-        'Build a generic Dockerfile instruction: kw ARG1 ARG2 --flag=val --bool-flag'
+        'Add any instruction by name, with keywords as `--flag=value` options, as in `df(\'healthcheck\', \'NONE\')`.'
         rest = joins(' ', [*mk_flags(short=False, **kw), *map(str, args)])
         return self._add(f'%s %s'%(inst.upper(), rest))
 
     def __getattr__(self, nm):
-        'Dispatch unknown instruction names: df.some_instr(arg) → SOME-INSTR arg'
+        'Treat any other method name as an instruction keyword, so `df.maintainer(\'me\')` writes `MAINTAINER me`.'
         if nm.startswith('_'): raise AttributeError(nm)
         return bind(self, nm.upper().rstrip('_'))
 
@@ -123,7 +123,7 @@ class Dockerfile(L):
 
 # %% ../nbs/00_core.ipynb #whnvww0xy2b
 class Cli:
-    'Base: __call__ builds flags → _run(), __getattr__ dispatches subcommands'
+    'Base class for wrapping a command-line tool: calling it runs a subcommand with keywords as flags, and any attribute is a subcommand.'
     def __call__(self, cmd, *a, **kw): return self._run(cmd, *mk_flags(*a, **kw))
     def _run(self, cmd, *a): raise NotImplementedError
     def __getattr__(self, nm):
@@ -154,7 +154,7 @@ def _clean_cfg():
 	return str(dst)
 
 class Docker(Cli):
-	'Unified docker CLI wrapper. no_creds strips credential helpers from config.'
+	'Run docker commands from Python; `no_creds=True` uses a copy of the Docker config without credential helpers.'
 	def __init__(self, no_creds=False): self.no_creds = no_creds
 	def _run(self, cmd, *a): return _docker_cmd(*self._pre(), cmd, *a)
 
@@ -163,7 +163,7 @@ class Docker(Cli):
 		return ('--config', _clean_cfg()) if chk else ()
 
 	def compose(self, *a, f='docker-compose.yml'):
-		'Run docker compose subcommand — auto-detects docker-compose vs docker compose'
+		'Run a compose subcommand on the file `f`, with the standalone `docker-compose` if it is installed, otherwise `docker compose`.'
 		base, *sub = _compose_cmd()
 		pre = self._pre() if sub else ()  # --config is a docker CLI flag; docker-compose doesn't support it
 		return _docker_cmd(*pre, *sub, '-f', f, *a, cli=base)
@@ -172,7 +172,7 @@ class Docker(Cli):
 # %% ../nbs/00_core.ipynb #ae10280a7aae03af
 @patch
 def build(df:Dockerfile, tag:str=None, path:str='.', no_creds=False, fn='Dockerfile'):
-    'Build image from Dockerfile via docker compose build (uses daemon BuildKit, no buildx required).'
+    'Save the Dockerfile into `path` as `fn` and build it with `docker compose build`, returning `tag`.'
     import subprocess, tempfile
     df.save(Path(path) / fn)
     svc = {'build': {'context': str(Path(path).resolve())}}
@@ -188,7 +188,7 @@ def build(df:Dockerfile, tag:str=None, path:str='.', no_creds=False, fn='Dockerf
     return tag
 
 def test(img_or_tag:str, cmd):
-	'Run cmd in image, return True if exit code 0'
+	'Return True if `cmd` exits with status 0 in a throwaway container from `img_or_tag`.'
 	try: Docker().run('--rm', str(img_or_tag), *listify(cmd)); return True
 	except Exception: return False
 
@@ -204,7 +204,7 @@ def _container_running(name:str, timeout:float=2.0, poll:float=0.1) -> bool:
 	return True  # timed out without definitive state — optimistic
 
 def drun(img:str, detach=False, ports=None, name=None, remove=False, command=None, check=True):
-	'Run a container, return container ID (detached) or output. check=True raises on startup failure.'
+	'Run a container from `img` and return its output, or its ID if `detach=True`; with `check=True` a detached container that stops at once raises `RuntimeError`.'
 	p_flags = concat(['-p', f'{hp}:{cp.split("/")[0]}'] for cp, hp in (ports or {}).items())
 	result = Docker()('run', *p_flags, *mk_flags(d=detach, rm=remove, name=name), str(img), *listify(command or []))
 	if detach and check:
@@ -226,7 +226,7 @@ def rmi(nm, force=False): Docker()('rmi', *mk_flags(f=force), nm)
 # %% ../nbs/00_core.ipynb #32772a234650ed9
 def dict2str(d: dict, sep=':'): return [f'{k}{sep}{v}' for k, v in d.items()] if isinstance(d, dict) else d
 def service(image=None, build=None, ports=None, env=None, volumes=None, depends_on=None, command=None, **kw):
-	'Create a docker-compose service dict'
+	'Return the dict for one Compose service, turning `ports`, `env` and `volumes` dicts into Compose\'s list form.'
 	if isinstance(build, Dockerfile): build = '.'
 	return filter_values(dict(image=image, command=command, depends_on=depends_on,
 	                          ports=dict2str(ports), build=build, environment=dict2str(env, '='),
@@ -234,7 +234,7 @@ def service(image=None, build=None, ports=None, env=None, volumes=None, depends_
 
 # %% ../nbs/00_core.ipynb #55ce7f669533f474
 class Compose(L):
-	'Fluent builder for docker-compose.yml files'
+	'Build a docker-compose.yml from services, networks and volumes; each method returns a new Compose.'
 	def _add(self, item): return self._new(self.items + [item])
 	def _collect(self, tag): return {n: c for t, n, c in self if t == tag}
 	def save(self, path='docker-compose.yml'): Path(path).write_text(str(self)); return self
@@ -244,7 +244,7 @@ class Compose(L):
 
 	@classmethod
 	def load(cls, path='docker-compose.yml'):
-		'Load an existing docker-compose.yml'
+		'Read an existing docker-compose.yml into a Compose.'
 		d = yaml.safe_load(Path(path).read_text())
 		it = [('services', n, c) for n, c in (d.get('services') or {}).items()]
 		it += [('networks', n, c) for n, c in (d.get('networks') or {}).items()]
@@ -252,23 +252,23 @@ class Compose(L):
 		return cls(it)
 
 	def to_dict(self):
-		'Render full compose config as dict'
+		'Return the Compose file as a dict, with networks and volumes only when some are declared.'
 		d = {'services': self._collect('services')}
 		if nets := self._collect('networks'): d['networks'] = nets
 		if vols := self._collect('volumes'):  d['volumes'] = vols
 		return d
 
 	def up(self, detach=True, path='docker-compose.yml', no_creds=False, **kw):
-		'Run docker compose up'
+		'Save the file to `path` and run `docker compose up`, detached by default.'
 		self.save(path)
 		return Docker(no_creds).compose('up', *mk_flags(d=detach, **kw), f=path)
 
 	def down(self, path='docker-compose.yml', no_creds=False, **kw):
-		'Run docker compose down'
+		'Run `docker compose down` on the file at `path`.'
 		return Docker(no_creds).compose('down', *mk_flags(**kw), f=path)
 
 	def logs(self, path='docker-compose.yml', no_creds=False, **kw):
-		'Run docker compose logs'
+		'Return the output of `docker compose logs` for the file at `path`.'
 		return Docker(no_creds).compose('logs', *mk_flags(**kw), f=path)
 
 	def __str__(self): return yaml.dump(self.to_dict(), default_flow_style=False, sort_keys=False)
@@ -277,14 +277,14 @@ class Compose(L):
 # %% ../nbs/00_core.ipynb #f56e4e9f534ac2ca
 @patch
 def inst_uv(self:Dockerfile, req=False, wd='/app'):
-	'Single-stage uv install: copy uv binary and sync deps. req=True uses requirements.txt instead of pyproject.toml'
+	'Install uv with pip and sync `pyproject.toml` into a `.venv`, or install `requirements.txt` into the system Python with `req=True`.'
 	self = self.run('pip install uv')
 	if req: return self.copy('requirements.txt', '.').run('uv pip install --system -r requirements.txt')
 	return self.copy('pyproject.toml', '.').run('uv sync --no-dev').env('PATH', f'{wd}/.venv/bin:$PATH')
 
 @patch
 def with_uv(self:Dockerfile, uv_image, image, workdir):
-	'Multistage uv builder: appends uv builder stage then runtime base onto df'
+	'Add a uv build stage that installs the locked dependencies, then start the runtime stage from `image`.'
 	return (self.from_(uv_image, as_='builder').workdir(workdir)
 			.env('UV_COMPILE_BYTECODE', '1').env('UV_LINK_MODE', 'copy')
 			.copy('pyproject.toml', '.').copy('uv.lock', '.')
@@ -294,13 +294,13 @@ def with_uv(self:Dockerfile, uv_image, image, workdir):
 
 @patch
 def packages(self:Dockerfile, *pkgs):
-	'Install system packages with apt-get. pkgs can be a list or space-separated string.'
+	'Install system packages with apt-get, or do nothing when no packages are given.'
 	return self.apt_install(*pkgs) if pkgs else self
 
 # %% ../nbs/00_core.ipynb #e17b41b26d006536
 def python_app(port=8000, cmd=None, im='python:3.13-slim', wd='/app', pkgs=None,
     vols=None, multistage=True, uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm', healthcheck=None, req=False):
-    'Python app Dockerfile. multistage=True (default): uv-builder → slim. False: single-stage with uv binary copy. req=True: use requirements.txt instead of pyproject.toml (forces multistage=False).'
+    'Return a Dockerfile for a uv-managed Python app: a uv build stage and a slim runtime by default, or one stage with `multistage=False`.'
     if multistage:
         df = Dockerfile().with_uv(uv_image, im, wd).copy(wd, wd, from_='builder').env('PATH', f'{wd}/.venv/bin:$PATH').packages(*listify(pkgs))
     else: df = Dockerfile().from_(im).workdir(wd).packages(*listify(pkgs)).inst_uv(req=req, wd=wd).copy('.', '.')
@@ -312,7 +312,7 @@ def python_app(port=8000, cmd=None, im='python:3.13-slim', wd='/app', pkgs=None,
 def fastapi_react(port=8000, node_version='20', frontend_dir='frontend', build_dir='dist',
     image='python:3.13-slim', pkgs=None, healthcheck='/health', multistage=False,
     uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm'):
-    'Two-stage (default) or three-stage (multistage=True) Dockerfile: Node.js frontend + Python/FastAPI backend'
+    'Return a Dockerfile that builds a Node frontend and serves it from a Python app run with uvicorn; `multistage=True` adds a uv build stage.'
     df = (Dockerfile().from_(f'node:{node_version}-slim', as_='frontend')
           .workdir('/build').copy(f'{frontend_dir}/package*.json', '.')
           .run('npm ci').copy(frontend_dir, '.').run('npm run build'))
@@ -323,7 +323,7 @@ def fastapi_react(port=8000, node_version='20', frontend_dir='frontend', build_d
     return df.expose(port).cmd(['uvicorn', 'main:app', '--host', '0.0.0.0', f'--port={port}'])
 
 def go_app(port=8080, go_version='1.22', binary='app', runtime='gcr.io/distroless/static', cmd=None, cgo=False):
-    'Two-stage Go Dockerfile: go compiler + go mod cache → distroless runtime'
+    'Return a two-stage Dockerfile that compiles a Go binary and runs it in a distroless image.'
     df = (Dockerfile().from_(f'golang:{go_version}-alpine', as_='builder')
           .workdir('/src').copy('go.mod', '.').copy('go.sum', '.')
           .run_mount('go mod download', target='/go/pkg/mod')
@@ -333,7 +333,7 @@ def go_app(port=8080, go_version='1.22', binary='app', runtime='gcr.io/distroles
     return df.cmd(cmd or [f'/{binary}'])
 
 def rust_app(port=8080, rust_version='1', binary='app', runtime='gcr.io/distroless/static', features=None):
-    'Two-stage Rust Dockerfile: cargo build --release → distroless runtime'
+    'Return a two-stage Dockerfile that builds a Rust binary with `cargo build --release` and runs it in a distroless image.'
     build_cmd = 'cargo build --release' + (f' --features {features}' if features else '')
     df = (Dockerfile().from_(f'rust:{rust_version}-slim-bookworm', as_='builder').workdir('/src')
           .copy('.', '.').run_mount(build_cmd, target='/usr/local/cargo/registry').from_(runtime)
@@ -341,7 +341,7 @@ def rust_app(port=8080, rust_version='1', binary='app', runtime='gcr.io/distrole
     return df.cmd([f'/{binary}'])
 
 def node_app(port=3000, node_version='20', cmd=None, build_cmd='npm run build', static=False):
-    'Node.js Dockerfile. static=True does two-stage build → serve dist/; False runs node directly.'
+    'Return a Dockerfile that runs a Node.js app, or with `static=True` builds it and serves `dist/` with `serve`.'
     df = (Dockerfile().from_(f'node:{node_version}-slim', as_='builder' if static else None)
           .workdir('/app').copy('package*.json', '.').run('npm ci').copy('.', '.'))
     if static:
@@ -353,7 +353,7 @@ def node_app(port=3000, node_version='20', cmd=None, build_cmd='npm run build', 
 fasthtml_app = bind(python_app, port=5001, cmd=['python', 'app.py'], multistage=False)
 
 def detect_app(path='.', multistage=True, **kw):
-    'A naive project type detector from path and return the appropriate Dockerfile. for **kw lookup other app builders'
+    'Pick a builder from the files in `path` and return its Dockerfile; extra keywords go to that builder.'
     p = Path(path)
     has = lambda f: (p/f).exists()
     read = lambda f: (p/f).read_text().lower() if has(f) else ''
@@ -372,7 +372,7 @@ def detect_app(path='.', multistage=True, **kw):
 _FASTOPS_ENV = Path.home() / '.config' / 'fastops' / '.env'
 
 def env_set(key, value, path=None):
-    'Upsert key=value into fastops .env file and os.environ. Returns True if changed.'
+    'Save `key=value` in the fastops .env file, or the file at `path`, and in `os.environ`.'
     from dotenv import get_key, set_key
     p = Path(path or _FASTOPS_ENV)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -381,7 +381,7 @@ def env_set(key, value, path=None):
     os.environ[key] = str(value)
 
 def env_get(key, path=None, default=None):
-    'Read key: os.environ first, then fastops .env file, then default.'
+    'Read `key` from `os.environ`, then the .env file, and return `default` if neither has it.'
     val = os.environ.get(key)
     if val is not None: return val
     from dotenv import get_key
@@ -389,30 +389,30 @@ def env_get(key, path=None, default=None):
 
 # %% ../nbs/00_core.ipynb #f98d154fe212c161
 def secret_set(key, value, service='fastops', save=True, path=None):
-	'Store secret in OS keychain (if available) and os.environ. Silent fallback on headless/VPS.'
+	'Store a secret in the system keychain when there is one and, with `save=True`, in the .env file and `os.environ`.'
 	try: keyring.set_password(service, key, value)
 	except Exception: pass
 	if save: env_set(key, value, path=path)
 	return True
 
 def secret_get(key, service='fastops', default=None, path=None):
-	'Read secret: OS keychain → os.environ → fastops .env → default.'
+	'Read a secret from the keychain, then `os.environ`, then the .env file, and return `default` if none has it.'
 	try: val = keyring.get_password(service, key)
 	except Exception: val = None
 	return val if val is not None else env_get(key, path=path, default=default)
 
 # %% ../nbs/00_core.ipynb #x6lph8464h
 def secrets(*keys, service='fastops', path=None):
-    'Read multiple secrets from keychain/env into a dict. Warns and skips any that are missing.'
+    'Return a dict of the given secrets that have a value, leaving out the missing ones.'
     return filter_values(merge(*L(keys).map(lambda k: {k:secret_get(k, service=service, path=path)})),true)
 
 # %% ../nbs/00_core.ipynb #1ba087b5
 def repo_root() -> Path:
-	'Find the root of the current git repository, or None if not in a repo.'
+	'Return the nearest folder at or above the current one that contains `.git`, or None.'
 	return first((Path.cwd(), *Path.cwd().parents), lambda p: (p/'.git').exists())
 
 def mv_skill_md(dry_run=True, dir=None) -> None:
-	'Copy bundled SKILL.md into `.agents/skills/dockeasy/` and `.claude/skills/dockeasy/` at project root or specified dir.'
+	'Copy the bundled SKILL.md into the agent skill folders under `dir` or the repository root; `dry_run=True` only prints the targets.'
 	base = Path(__file__).parent if '__file__' in globals() else Path.cwd()
 	if not (src := base.joinpath('SKILL.md')).exists(): return
 	root = Path(dir or repo_root() or '.')

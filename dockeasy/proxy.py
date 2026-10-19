@@ -1,4 +1,4 @@
-"""Caddy reverse proxy, CrowdSec security, swag containers and Cloudflare tunnel support
+"""Write Caddyfiles, and the Compose services for Caddy, CrowdSec and Cloudflare Tunnel.
 
 Docs: https://Karthik777.github.io/dockeasy/proxy.html.md"""
 
@@ -13,7 +13,7 @@ from .core import *
 
 # %% ../nbs/01_proxy.ipynb #fe6aaa0167bca61e
 class Caddyfile(L):
-	'Fluent builder for production-ready Caddyfiles'
+	'Build a Caddyfile that serves `domain` and forwards requests to `app:port`; each method returns a new Caddyfile.'
 	def __init__(self, domain, app='app', port=5001):
 		store_attr()
 		super().__init__([])
@@ -29,45 +29,45 @@ class Caddyfile(L):
 	def __repr__(self): return str(self)
 
 	def email(self, addr):
-		'ACME account email (global). Caddy works without it but uses anonymous account.'
+		'Set the ACME account email in the global block; Caddy also works without one.'
 		return self._add(('g', f'email {addr}'))
 
 	def acme_dns(self, provider, token_env=None):
-		'DNS-01 TLS challenge — needed when port 80 is unavailable (e.g. behind Cloudflare tunnel)'
+		'Get certificates with a DNS-01 challenge through `provider`, reading its API token from the `token_env` variable.'
 		token = f'{{${token_env}}}' if token_env else ''
 		return self._add(('s', f'\ttls {{\n\t\tacme_dns {provider} {token}\n\t}}'))
 
 	def cloudflared(self):
-		'Use http:// prefix — required when running behind cloudflared tunnel (no public port 80/443)'
+		'Serve the site over plain http://, as needed behind a Cloudflare Tunnel.'
 		return self._add(('f', 'cloudflared'))
 
 	def crowdsec(self, api_url='http://crowdsec:8080', key_env='CROWDSEC_API_KEY'):
-		'CrowdSec bouncer — plugin, not built-in'
+		'Check visitors with the CrowdSec agent at `api_url`, using the key in the `key_env` variable; needs the CrowdSec plugin.'
 		return self._add(('s', f'\tcrowdsec {{\n\t\tapi_url {api_url}\n\t\tapi_key {{${key_env}}}\n\t}}'))
 
 	def rate_limit(self, requests='100', window='1m'):
-		'Rate limiting'
+		'Allow each client IP address `requests` requests per `window`; needs the rate limit plugin.'
 		return self._add(('s', f'\trate_limit {{\n\t\tzone dynamic {{\n\t\t\tkey {{http.request.remote_ip}}\n\t\t\tevents {requests}\n\t\t\twindow {window}\n\t\t}}\n\t}}'))
 
 	def max_body(self, size='100m'):
-		'Request body limit'
+		'Reject request bodies larger than `size`.'
 		return self._add(('s', f'\trequest_body {{\n\t\tmax_size {size}\n\t}}'))
 
 	def spa(self, static_dir='/app/static'):
-		'SPA preset: static files with fallback to index.html'
+		'Serve a single-page app from `static_dir`, falling back to index.html, instead of forwarding to the app.'
 		return self._add(('spa', f'\troot * {static_dir}\n\ttry_files {{path}} /index.html\n\tfile_server'))
 
 	def encode(self):
-		'Compression — Caddy does NOT enable this by default, one word is enough'
+		'Turn on response compression, which Caddy leaves off by default.'
 		return self._add(('s', '\tencode'))
 
 	def log(self, output='stderr'):
-		'Access logging. Caddy logs errors by default; access logs are opt-in.'
+		'Turn on access logging, to stderr or to the Caddy log `output` given.'
 		out = f'output {output}' if output != 'stderr' else ''
 		return self._add(('s', f'\tlog {{\n\t\t{out}\n\t}}' if out else '\tlog'))
 
 	def __str__(self):
-		'Render full Caddyfile'
+		'Render the Caddyfile text.'
 		parts = []
 		g = list(self._get('g'))
 		if g: parts.append('{\n\t' + '\n\t'.join(g) + '\n}')
@@ -80,24 +80,24 @@ class Caddyfile(L):
 		return '\n'.join(parts)
 
 	def save(self, path='Caddyfile'):
-		'Write to disk'
+		'Write the Caddyfile to `path` and return it.'
 		Path(path).write_text(str(self))
 		return self
 
 # %% ../nbs/01_proxy.ipynb #d1a11e12
-def caddy(domain,  # domain to serve (e.g. example.com or sub.example.com)
-          app='app',  # upstream app name (must match Compose service name)
-          port=5001,  # upstream app port
-          email=None,  # ACME account email (optional but good practice)
-          dns=None,  # DNS-01 provider name for TLS when port 80 is blocked (e.g. 'cloudflare' or 'duckdns')
-          dns_token_env=None,  # env var name for DNS API token (default: {DNS}_API_TOKEN, e.g. CLOUDFLARE_API_TOKEN)
-          crowdsec=False,  # enable CrowdSec bouncer plugin (not built-in, requires separate service). you don't need this if you're using the pre-built Caddy images with CrowdSec support.
-          crowdsec_url='http://crowdsec:8080',  # CrowdSec API URL (default assumes separate 'crowdsec' service in same Compose network)
-          cloudflared=False,  # prefix with http:// for Cloudflare tunnel setups (disables ACME, requires separate cloudflared service)
-          encode=False,  # enable compression (not on by default)
-          access_log=False  # enable access logging to stderr (errors only by default)
+def caddy(domain,  # domain to serve, such as example.com or app.example.com
+          app='app',  # name of the app to forward to; in Compose, its service name
+          port=5001,  # port the app listens on
+          email=None,  # ACME account email, so Let's Encrypt can write to you about certificates
+          dns=None,  # DNS provider for a DNS-01 challenge, such as 'cloudflare' or 'duckdns', for when port 80 is not reachable
+          dns_token_env=None,  # environment variable holding the DNS provider's API token; defaults to {DNS}_API_TOKEN, such as CLOUDFLARE_API_TOKEN
+          crowdsec=False,  # check visitors against a CrowdSec agent; needs a Caddy image with the CrowdSec plugin and a separate crowdsec service
+          crowdsec_url='http://crowdsec:8080',  # URL of the CrowdSec agent; the default is a service called crowdsec on the same Compose network
+          cloudflared=False,  # serve plain http:// behind a Cloudflare Tunnel; Caddy then fetches no certificates and dns is ignored
+          encode=False,  # turn on response compression, which Caddy leaves off by default
+          access_log=False  # log every request to stderr; Caddy writes no access log by default
           )->Caddyfile:
-	'Minimal Caddyfile for reverse-proxying app:port from domain. Optional ACME email, DNS-01 provider, CrowdSec protection, and Cloudflare tunnel support.'
+	'Build a Caddyfile that forwards `domain` to `app:port`, with optional ACME email, DNS-01 challenge, CrowdSec, tunnel mode, compression and access log.'
 	cf = Caddyfile(domain, app, port)
 	if email: cf = cf.email(email)
 	if dns and not cloudflared: cf = cf.acme_dns(dns, dns_token_env or f'{dns.upper()}_API_TOKEN')
@@ -120,7 +120,7 @@ def caddy_api(domain,
               rate='200',
               rate_window='1m'
               ) -> str:
-	'Caddyfile preset for API services — adds rate limiting and body size cap'
+	'Build a `caddy` Caddyfile for an API, adding a per-IP rate limit, a cap on request bodies and compression.'
 	return caddy(domain, app, port, email=email, dns=dns, dns_token_env=dns_token_env, cloudflared=cloudflared,
         crowdsec=crowdsec, crowdsec_url=crowdsec_url).rate_limit(rate, rate_window).max_body(max_body).encode()
 
@@ -133,7 +133,7 @@ def _caddy_img(crowdsec, cloudflare):
 
 def caddy_svc(domain, app='app', port=5001, *, dns=None, email=None,
               crowdsec=False, cloudflared=False, conf='Caddyfile', **kw):
-    'Write Caddyfile and return Caddy service kwargs for Compose.svc()'
+    'Write the Caddyfile to `conf` and return a Caddy service for `Compose.svc`, with an image that has the plugins the options need.'
     caddy(domain, app, port, email=email, dns=dns, cloudflared=cloudflared, crowdsec=crowdsec).save(conf)
     is_cf = dns == 'cloudflare'
     tok = f'{dns.upper()}_API_TOKEN' if dns else None
@@ -152,14 +152,14 @@ def caddy_svc(domain, app='app', port=5001, *, dns=None, email=None,
 
 # %% ../nbs/01_proxy.ipynb #52a33e28
 def cloudflared_svc(token_env='${CF_TUNNEL_TOKEN}', url=None, **kw):
-    'Cloudflare tunnel service kwargs for Compose.svc(). Pass url to set ingress inline (e.g. url="http://caddy").'
+    'Return a Cloudflare Tunnel service for `Compose.svc`; `url` sets where the tunnel sends traffic, such as http://caddy.'
     cmd = f'tunnel --no-autoupdate run{" --url " + url if url else ""}'
     return service(image='cloudflare/cloudflared:latest', command=cmd,
                    env={'TUNNEL_TOKEN': token_env}, networks=['web'], restart='unless-stopped', **kw)
 
 # %% ../nbs/01_proxy.ipynb #a63a6718
 def crowdsec(collections=None, bouncer_key_env='CROWDSEC_BOUNCER_KEY', **kw):
-    'CrowdSec agent service kwargs for Compose.svc()'
+    'Return a CrowdSec agent service for `Compose.svc`, with the bouncer key for Caddy read from `bouncer_key_env`.'
     cols = joins(' ', listify(collections or ['crowdsecurity/linux', 'crowdsecurity/caddy', 'crowdsecurity/http-cve']))
     return service(
         image='crowdsecurity/crowdsec:latest',
