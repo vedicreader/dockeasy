@@ -8,10 +8,23 @@ Docs: https://vedicreader.github.io/dockeasy/proxy.html.md"""
 __all__ = ['Caddyfile', 'caddy', 'caddy_api', 'caddy_svc', 'cloudflared_svc', 'crowdsec']
 
 # %% ../nbs/01_proxy.ipynb #e67b555b
-from fastcore.all import L, store_attr, listify, joins, Path
+from fastcore.all import L, store_attr, listify, joins, Path, first
 from .core import *
 
 # %% ../nbs/01_proxy.ipynb #fe6aaa0167bca61e
+def _annotate(txt, notes):
+	'Append each note as a `#` comment to the first line starting with its key, aligned across consecutive annotated lines.'
+	ls, left, at, runs = txt.split('\n'), dict(notes), {}, []
+	for i, l in enumerate(ls):
+		if (k := first(left, lambda k: l.strip().startswith(k))) is not None: at[i] = left.pop(k)
+	for i in at:
+		if runs and runs[-1][-1] == i - 1: runs[-1].append(i)
+		else: runs.append([i])
+	for r in runs:
+		w = max(len(ls[i]) for i in r)
+		for i in r: ls[i] = f'{ls[i].ljust(w)}   # {at[i]}'
+	return '\n'.join(ls)
+
 class Caddyfile(L):
 	'Build a Caddyfile that serves `domain` and forwards requests to `app:port`; each method returns a new Caddyfile.'
 	def __init__(self, domain, app='app', port=5001):
@@ -38,8 +51,8 @@ class Caddyfile(L):
 		return self._add(('s', f'\ttls {{\n\t\tacme_dns {provider} {token}\n\t}}'))
 
 	def cloudflared(self):
-		'Serve the site over plain http://, as needed behind a Cloudflare Tunnel.'
-		return self._add(('f', 'cloudflared'))
+		'Serve the site over plain http:// behind a Cloudflare Tunnel, trusting the tunnel to report the client address in `Cf-Connecting-Ip`.'
+		return self._add(('f', 'cloudflared'), ('g', 'servers {\n\t\ttrusted_proxies static private_ranges\n\t\tclient_ip_headers Cf-Connecting-Ip\n\t}'))
 
 	def crowdsec(self, api_url='http://crowdsec:8080', key_env='CROWDSEC_API_KEY'):
 		'Check visitors with the CrowdSec agent at `api_url`, using the key in the `key_env` variable; needs the CrowdSec plugin.'
@@ -57,9 +70,35 @@ class Caddyfile(L):
 		'Serve a single-page app from `static_dir`, falling back to index.html, instead of forwarding to the app.'
 		return self._add(('spa', f'\troot * {static_dir}\n\ttry_files {{path}} /index.html\n\tfile_server'))
 
-	def encode(self):
-		'Turn on response compression, which Caddy leaves off by default.'
-		return self._add(('s', '\tencode'))
+	def encode(self, *fmts):
+		'Turn on response compression, which Caddy leaves off by default, with the encodings `fmts` in order of preference.'
+		return self._add(('s', '\tencode' + ''.join(f' {f}' for f in fmts)))
+
+	def comment(self, text):
+		'Add a comment line to the site block.'
+		return self._add(('s', f'\t# {text}'))
+
+	def raw(self, block):
+		'Add `block`, Caddyfile text written as it is, to the site block; its lines after the first carry their own indentation.'
+		return self._add(('s', f'\t{block}'))
+
+	def upstreams(self, ports=None, handle=False, lb_policy=None, lb_try_duration=None, lb_try_interval=None, health_uri=None,
+				  health_interval=None, health_timeout=None, fail_duration=None):
+		'Forward to `app` on each of `ports`, with load balancing and active health checks; `handle` wraps the proxy in a fallback `handle` block.'
+		kw = dict(lb_policy=lb_policy, lb_try_duration=lb_try_duration, lb_try_interval=lb_try_interval, health_uri=health_uri,
+				  health_interval=health_interval, health_timeout=health_timeout, fail_duration=fail_duration)
+		return self._add(('p', (list(ports or [self.port]), {k: v for k, v in kw.items() if v is not None}, handle)))
+
+	def notes(self, notes):
+		'Write each value of `notes` as a comment after the first line that starts with its key, aligning comments on consecutive lines.'
+		return self._add(('n', notes))
+
+	def _proxy(self):
+		ps, kw, hdl = first(self._get('p')) or ([self.port], {}, False)
+		i = '\t\t' if hdl else '\t'
+		s = f'{i}reverse_proxy ' + ' '.join(f'{self.app}:{p}' for p in ps)
+		if kw: s += ' {\n' + '\n'.join(f'{i}\t{k} {v}' for k, v in kw.items()) + f'\n{i}}}'
+		return f'\thandle {{\n{s}\n\t}}' if hdl else s
 
 	def log(self, output='stderr', roll_size=None, roll_keep=None, roll_keep_for=None, format=None):
 		'Turn on access logging to `output`, a Caddy log writer or a file path; `roll_*` rotate a file output.'
@@ -78,10 +117,10 @@ class Caddyfile(L):
 		prefix = 'http://' if self._has('f') else ''
 		site = [f'{prefix}{self.domain} {{'] + list(self._get('s'))
 		if self._has('spa'): site += list(self._get('spa'))
-		else: site.append(f'\treverse_proxy {self.app}:{self.port}')
+		else: site.append(self._proxy())
 		site.append('}')
 		parts.append('\n'.join(site))
-		return '\n'.join(parts)
+		return _annotate('\n\n'.join(parts), {k: v for d in self._get('n') for k, v in d.items()}) + '\n'
 
 	def save(self, path='Caddyfile'):
 		'Write the Caddyfile to `path` and return it.'
@@ -136,16 +175,16 @@ def _caddy_img(crowdsec, cloudflare):
     else: return 'caddy:2'
 
 def caddy_svc(domain, app='app', port=5001, *, dns=None, email=None,
-              crowdsec=False, cloudflared=False, conf='Caddyfile', **kw):
+              crowdsec=False, cloudflared=False, conf='Caddyfile', caddyfile=None, save=True, mount=None, **kw):
     'Write the Caddyfile to `conf` and return a Caddy service for `Compose.svc`, with an image that has the plugins the options need.'
-    caddy(domain, app, port, email=email, dns=dns, cloudflared=cloudflared, crowdsec=crowdsec).save(conf)
+    if save: Path(conf).write_text(str(caddyfile if caddyfile is not None else caddy(domain, app, port, email=email, dns=dns, cloudflared=cloudflared, crowdsec=crowdsec)))
     is_cf = dns == 'cloudflare'
     tok = f'{dns.upper()}_API_TOKEN' if dns else None
     env = {}
     if dns: env[tok] = '${%s}' % tok
     if crowdsec: env['CROWDSEC_API_KEY'] = '${CROWDSEC_API_KEY}'
     conf_path = Path(conf)
-    vol_key = str(conf_path.resolve()) if conf_path.is_absolute() else f'./{conf_path.name}'
+    vol_key = mount or (str(conf_path.resolve()) if conf_path.is_absolute() else f'./{conf_path.name}')
     return service(
         image=kw.pop('image', _caddy_img(crowdsec, is_cf)),
         ports=None if cloudflared else ['80:80', '443:443', '443:443/udp'],

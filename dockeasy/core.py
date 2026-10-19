@@ -276,11 +276,30 @@ class Compose(L):
 
 # %% ../nbs/00_core.ipynb #f56e4e9f534ac2ca
 @patch
-def inst_uv(self:Dockerfile, req=False, wd='/app'):
-	'Install uv with pip and sync `pyproject.toml` into a `.venv`, or install `requirements.txt` into the system Python with `req=True`.'
-	self = self.run('pip install uv')
-	if req: return self.copy('requirements.txt', '.').run('uv pip install --system -r requirements.txt')
-	return self.copy('pyproject.toml', '.').run('uv sync --no-dev').env('PATH', f'{wd}/.venv/bin:$PATH')
+def uv_deps(self:Dockerfile, lock=True, bytecode=False):
+	'Install uv with pip and sync only the dependencies, from `uv.lock` with `--frozen` when `lock`, so the layer survives code changes.'
+	df = self.run('pip install uv').copy('pyproject.toml', '.')
+	if lock: df = df.copy('uv.lock', '.')
+	return df.run(f'uv sync{" --frozen" if lock else ""} --no-dev --no-install-project' + (' --compile-bytecode' if bytecode else ''))
+
+@patch
+def uv_project(self:Dockerfile, lock=True, wd='/app', compile=None):
+	'Copy the project in, sync it, compile the `compile` folders to bytecode, and put the `.venv` on the `PATH`.'
+	c = f'uv sync{" --frozen" if lock else ""} --no-dev'
+	if compile: c += ' && .venv/bin/python -m compileall -q ' + ' '.join(listify(compile))
+	return self.copy('.', '.').run(c).env('PATH', f'{wd}/.venv/bin:$PATH')
+
+@patch
+def inst_uv(self:Dockerfile, req=False, wd='/app', lock=False, bytecode=False, deps_first=False, mid=None, compile=None):
+	'Install uv with pip and sync the project into a `.venv`, or install `requirements.txt` into the system Python with `req=True`.'
+	if req: return self.run('pip install uv').copy('requirements.txt', '.').run('uv pip install --system -r requirements.txt')
+	if deps_first:
+		df = self.uv_deps(lock, bytecode)
+		for c in listify(mid): df = df.run(c)
+		return df.uv_project(lock, wd, compile)
+	df = self.run('pip install uv').copy('pyproject.toml', '.')
+	if lock: df = df.copy('uv.lock', '.')
+	return df.run(f'uv sync{" --frozen" if lock else ""} --no-dev' + (' --compile-bytecode' if bytecode else '')).env('PATH', f'{wd}/.venv/bin:$PATH')
 
 @patch
 def with_uv(self:Dockerfile, uv_image, image, workdir):
@@ -299,15 +318,21 @@ def packages(self:Dockerfile, *pkgs):
 
 # %% ../nbs/00_core.ipynb #e17b41b26d006536
 def python_app(port=8000, cmd=None, im='python:3.13-slim', wd='/app', pkgs=None,
-    vols=None, multistage=True, uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm', healthcheck=None, req=False):
+    vols=None, multistage=True, uv_image='ghcr.io/astral-sh/uv:python3.13-bookworm', healthcheck=None, req=False,
+    lock=False, bytecode=False, ports=1, pre=None, mid=None, compile=None):
     'Return a Dockerfile for a uv-managed Python app: a uv build stage and a slim runtime by default, or one stage with `multistage=False`.'
     if multistage:
         df = Dockerfile().with_uv(uv_image, im, wd).copy(wd, wd, from_='builder').env('PATH', f'{wd}/.venv/bin:$PATH').packages(*listify(pkgs))
-    else: df = Dockerfile().from_(im).workdir(wd).packages(*listify(pkgs)).inst_uv(req=req, wd=wd).copy('.', '.')
+        for c in listify(pre): df = df.run(c)
+    else:
+        df = Dockerfile().from_(im).workdir(wd).packages(*listify(pkgs))
+        for c in listify(pre): df = df.run(c)
+        df = df.inst_uv(req=req, wd=wd, lock=lock, bytecode=bytecode, deps_first=lock and not req, mid=mid, compile=compile)
+        if req or not lock: df = df.copy('.', '.')
     if vols: df = df.run('mkdir -p ' + ' '.join(listify(vols)))
     if healthcheck: df = df.healthcheck(f'curl -f http://localhost:{port}{healthcheck}', i='30s', t='5s', r='3')
     _cmd = cmd or ['python', 'main.py']
-    return df.expose(port).cmd(_cmd if isinstance(_cmd, list) else _cmd.split())
+    return df.expose(' '.join(str(port + i) for i in range(ports))).cmd(_cmd if isinstance(_cmd, list) else _cmd.split())
 
 def fastapi_react(port=8000, node_version='20', frontend_dir='frontend', build_dir='dist',
     image='python:3.13-slim', pkgs=None, healthcheck='/health', multistage=False,
