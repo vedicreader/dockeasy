@@ -2,9 +2,21 @@
 
 <!-- do not remove -->
 
+## 0.0.12
+- `secret_set` defaults to `save=False`. When the keychain fails it raises `RuntimeError` and writes nothing. It saved the value in plaintext in the `.env` file without a message.
+- `secret_set` writes the `.env` file and `os.environ` only with `save=True`. It also wrote them by default when the keychain worked.
+- `secret_set` with `save=True` issues a `UserWarning` that names the `.env` file when the keychain fails, then saves the value there in plaintext.
+- `mk_flags` writes the integer values `0` and `1` as values, as in `--quiet=0` and `--retries=1`. It treated them as `False` and `True`.
+- `build` passes the Dockerfile name `fn` to Compose as `dockerfile`.
+- `drun` keeps the protocol suffix of a container port, as in `{'53/udp': 5353}`.
+- `Compose.load` keeps top-level keys other than `services`, `networks` and `volumes`, and `to_dict` writes them back.
+- `env_set` creates a new `.env` file with mode `0600` in one step.
+- `caddy_svc` mounts a relative `conf` path under its folders, as in `./conf/Caddyfile`. It mounted the file name only.
+- The compose command style is probed once per process. `_compose_cmd.cache_clear()` probes again.
+
 ## 0.0.11
-- `Caddyfile.crowdsec` writes the global `order crowdsec first` that Caddy needs to place the plugin's handler, moves `api_url` and `api_key` into a global `crowdsec` block, where the plugin reads them, and leaves a bare `crowdsec` in the site block
-- `python_app`, `fasthtml_app` and `fastapi_react` health checks use a Python `urllib` one-liner instead of curl, which the slim image lacks, unless `pkgs` installs curl
+- `Caddyfile.crowdsec` writes the global `order crowdsec first`, which Caddy needs to place the plugin's handler. `api_url` and `api_key` are written in the global `crowdsec` block, where the plugin reads them. The site block contains a bare `crowdsec` handler.
+- `python_app`, `fasthtml_app` and `fastapi_react` health checks use a Python `urllib` one-liner. The slim image does not include curl. Installing curl through `pkgs` selects the curl health check.
 
 ## 0.0.10
 - `FASTOPS_ENV` names the default `.env` file `env_set` and `env_get` use; `_FASTOPS_ENV` remains as an alias

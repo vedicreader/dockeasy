@@ -1,6 +1,6 @@
 # dockeasy
 
-dockeasy generates Dockerfiles, Caddyfiles, and Docker Compose stacks from Python. It also manages containers and stores secrets.
+dockeasy writes Dockerfiles, Caddyfiles and Docker Compose files from Python. It also runs Docker containers and stores secrets.
 
 ## Framework builders
 
@@ -31,7 +31,7 @@ df = (Dockerfile()
       .cmd(['uv', 'run', 'python', '-m', 'myapp']))
 ```
 
-`run_mount(cmd, target)` adds `--mount=type=cache` automatically. Build cache survives between runs.
+`run_mount(cmd, target)` adds `--mount=type=cache` automatically. Docker keeps the cache between builds.
 
 ## Building and running containers
 
@@ -63,7 +63,7 @@ dc = (Compose()
       .svc('cloudflared', **cloudflared_svc())
       .network('web').volume('caddy_data').volume('caddy_config'))
 
-# CrowdSec + tunnel: IPS with no open ports
+# CrowdSec + tunnel: blocks known attackers, no open ports
 dc = (Compose()
       .svc('app', build='.', networks=['web'], restart='unless-stopped')
       .svc('caddy', **caddy_svc('myapp.com', crowdsec=True, cloudflared=True))
@@ -74,9 +74,10 @@ dc = (Compose()
       .volume('crowdsec-db').volume('crowdsec-config'))
 ```
 
+CrowdSec records decisions to block client IP addresses. Caddy checks these decisions before it forwards a request. The Cloudflare Tunnel needs no inbound ports.
+
 `caddy_svc()` also accepts:
-- `dns='cloudflare'`: DNS-01 TLS for wildcard certs
-- `routes={'/rpc/*': ('ucall', 8545)}`: path-based multi-service routing
+- `dns='cloudflare'`: uses Cloudflare DNS to prove domain control. DNS-01 supports wildcard certificates. It does not require an inbound connection on port 80.
 - `caddy_api()`: preset with rate limiting and body size cap
 
 ## caddy_stack shortcut
@@ -89,7 +90,7 @@ from fastcore.all import joins
 compose = caddy_stack(joins('.', ['lego', 'sankalpa.sh']), fasthtml_app(), vols=['/app/data'])
 ```
 
-`caddy_stack` lives in vpseasy. It wraps `caddy_svc` + `cloudflared_svc` into a ready-to-deploy Compose YAML.
+`caddy_stack` lives in vpseasy. It combines `caddy_svc` and `cloudflared_svc` into a Compose file ready to deploy.
 
 ## Compose (low-level)
 
@@ -109,10 +110,11 @@ from dockeasy import env_set, env_get, secret_set, secret_get
 
 env_set('VPS_IP', '1.2.3.4')          # ~/.config/fastops/.env, mode 0600
 env_set('KEY', 'val', path='.env')    # write to specific file instead
-secret_set('JWT_SCRT', 'abc123')      # OS keychain (macOS), env fallback (Linux)
+secret_set('JWT_SCRT', 'abc123')      # OS keychain only; RuntimeError when there is none
+secret_set('JWT_SCRT', 'abc123', save=True)  # also plaintext .env and os.environ; UserWarning when the keychain failed
 
 print(env_get('VPS_IP'))
 print(secret_get('JWT_SCRT'))
 ```
 
-Only dependencies: fastcore and keyring.
+Dependencies: `fastcore`, `keyring`, `python-dotenv` and `pyyaml`.

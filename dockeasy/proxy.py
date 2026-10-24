@@ -184,7 +184,7 @@ def caddy_svc(domain, app='app', port=5001, *, dns=None, email=None,
     if dns: env[tok] = '${%s}' % tok
     if crowdsec: env['CROWDSEC_API_KEY'] = '${CROWDSEC_API_KEY}'
     conf_path = Path(conf)
-    vol_key = mount or (str(conf_path.resolve()) if conf_path.is_absolute() else f'./{conf_path.name}')
+    vol_key = mount or (str(conf_path.resolve()) if conf_path.is_absolute() else f'./{conf_path.as_posix()}')
     return service(
         image=kw.pop('image', _caddy_img(crowdsec, is_cf)),
         ports=None if cloudflared else ['80:80', '443:443', '443:443/udp'],

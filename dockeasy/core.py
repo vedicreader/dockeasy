@@ -11,14 +11,15 @@ __all__ = ['fasthtml_app', 'FASTOPS_ENV', 'mk_flags', 'Dockerfile', 'Cli', 'Dock
            'repo_root', 'mv_skill_md']
 
 # %% ../nbs/00_core.ipynb #c7b52454175ab4d4
-import re, json, os, yaml, keyring, time
+import re, json, os, yaml, keyring, time, warnings
+from functools import cache
 from fastcore.all import listify, joins, is_listy, L, patch, concat, bind, Path, filter_values, run, merge, true, first
 
 # %% ../nbs/00_core.ipynb #t1qbqvj053
 def mk_flags(*a, short=True, sym='=', **kw):
     'Turn keyword arguments into command-line flags: one-letter keys become `-k [value]` and longer keys `--key[=value]`.'
     k2f = lambda k: f'--{k.rstrip("_").replace("_","-")}'
-    flags, sc, uv, vt = list(a), lambda k: len(k) == 1, lambda v: v not in (True, False, None), lambda v: v is True
+    flags, sc, uv, vt = list(a), lambda k: len(k) == 1, lambda v: v is not None and not isinstance(v, bool), lambda v: v is True
     if short:
         flags += concat([f'-{k}', str(v)] for k,v in kw.items() if sc(k) and uv(v))
         flags += [f'-{k}' for k,v in kw.items() if sc(k) and vt(v)]
@@ -133,8 +134,9 @@ class Cli:
 # %% ../nbs/00_core.ipynb #4abe618740a1c539
 def _docker_cmd(*args, cli='docker'): return run(cli or 'docker', *args)
 
+@cache
 def _compose_cmd():
-	'Return compose invocation style: ("docker", "compose") or ("docker-compose",)'
+	'Return compose invocation style, probed once per process: ("docker", "compose") or ("docker-compose",); `_compose_cmd.cache_clear()` probes again.'
 	try: return ('docker-compose',) if run('docker-compose', 'version') else ('docker', 'compose')
 	except Exception: return 'docker', 'compose'
 
@@ -175,7 +177,7 @@ def build(df:Dockerfile, tag:str=None, path:str='.', no_creds=False, fn='Dockerf
     'Save the Dockerfile into `path` as `fn` and build it with `docker compose build`, returning `tag`.'
     import subprocess, tempfile
     df.save(Path(path) / fn)
-    svc = {'build': {'context': str(Path(path).resolve())}}
+    svc = {'build': {'context': str(Path(path).resolve()), 'dockerfile': fn}}
     if tag: svc['image'] = tag
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
         f.write(yaml.dump({'services': {'img': svc}})); tmp = f.name
@@ -201,11 +203,11 @@ def _container_running(name:str, timeout:float=2.0, poll:float=0.1) -> bool:
 		if status == 'running': return True
 		if status in ('exited', 'dead', 'removing'): return False
 		time.sleep(poll)
-	return True  # timed out without definitive state — optimistic
+	return True  # timed out without a definite state: assume running
 
 def drun(img:str, detach=False, ports=None, name=None, remove=False, command=None, check=True):
 	'Run a container from `img` and return its output, or its ID if `detach=True`; with `check=True` a detached container that stops at once raises `RuntimeError`.'
-	p_flags = concat(['-p', f'{hp}:{cp.split("/")[0]}'] for cp, hp in (ports or {}).items())
+	p_flags = concat(['-p', f'{hp}:{cp}'] for cp, hp in (ports or {}).items())
 	result = Docker()('run', *p_flags, *mk_flags(d=detach, rm=remove, name=name), str(img), *listify(command or []))
 	if detach and check:
 		nm = name or result.strip()
@@ -249,14 +251,15 @@ class Compose(L):
 		it = [('services', n, c) for n, c in (d.get('services') or {}).items()]
 		it += [('networks', n, c) for n, c in (d.get('networks') or {}).items()]
 		it += [('volumes', n, c) for n, c in (d.get('volumes') or {}).items()]
+		it += [('top', k, v) for k, v in d.items() if k not in ('services', 'networks', 'volumes')]
 		return cls(it)
 
 	def to_dict(self):
-		'Return the Compose file as a dict, with networks and volumes only when some are declared.'
+		'Return the Compose file as a dict, with networks and volumes only when some are declared, followed by any other top-level keys that `load` kept.'
 		d = {'services': self._collect('services')}
 		if nets := self._collect('networks'): d['networks'] = nets
 		if vols := self._collect('volumes'):  d['volumes'] = vols
-		return d
+		return d | self._collect('top')
 
 	def up(self, detach=True, path='docker-compose.yml', no_creds=False, **kw):
 		'Save the file to `path` and run `docker compose up`, detached by default.'
@@ -407,7 +410,7 @@ def env_set(key, value, path=None):
     from dotenv import get_key, set_key
     p = Path(path or FASTOPS_ENV)
     p.parent.mkdir(parents=True, exist_ok=True)
-    if not p.exists(): p.touch(); os.chmod(p, 0o600)
+    if not p.exists(): os.close(os.open(p, os.O_CREAT | os.O_WRONLY, 0o600))
     if get_key(str(p), key) != str(value): set_key(str(p), key, str(value))
     os.environ[key] = str(value)
 
@@ -419,11 +422,14 @@ def env_get(key, path=None, default=None):
     return get_key(str(Path(path or FASTOPS_ENV)), key) or default
 
 # %% ../nbs/00_core.ipynb #f98d154fe212c161
-def secret_set(key, value, service='fastops', save=True, path=None):
-	'Store a secret in the system keychain when there is one and, with `save=True`, in the .env file and `os.environ`.'
-	try: keyring.set_password(service, key, value)
-	except Exception: pass
-	if save: env_set(key, value, path=path)
+def secret_set(key, value, service='fastops', save=False, path=None):
+	'Store a secret in the system keychain; with `save=True` also in the .env file and `os.environ`, warning when that file holds the only copy; raises `RuntimeError` if nothing stored it.'
+	try: keyring.set_password(service, key, value); stored = True
+	except Exception as e: stored, err = False, e
+	if save:
+		if not stored: warnings.warn(f'No keychain available to store {key!r}; saving it in plaintext in {Path(path or FASTOPS_ENV)}', stacklevel=2)
+		env_set(key, value, path=path)
+	elif not stored: raise RuntimeError(f'No keychain available to store {key!r}; pass save=True to write it in plaintext to the .env file') from err
 	return True
 
 def secret_get(key, service='fastops', default=None, path=None):
