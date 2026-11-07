@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.13
+- `secret_set` with no keychain writes the value to the `.env` file with mode `0600` and issues a `UserWarning` that names the file. It raised `RuntimeError`, so a Linux desktop with no Secret Service could not store a secret.
+- `secret_set` returns where the value went, as `{'keychain': bool, 'file': path or None}`. It returned `True`.
+
 ## 0.0.12
 - `secret_set` defaults to `save=False`. When the keychain fails it raises `RuntimeError` and writes nothing. It saved the value in plaintext in the `.env` file without a message.
 - `secret_set` writes the `.env` file and `os.environ` only with `save=True`. It also wrote them by default when the keychain worked.

@@ -110,8 +110,9 @@ from dockeasy import env_set, env_get, secret_set, secret_get
 
 env_set('VPS_IP', '1.2.3.4')          # ~/.config/fastops/.env, mode 0600
 env_set('KEY', 'val', path='.env')    # write to specific file instead
-secret_set('JWT_SCRT', 'abc123')      # OS keychain only; RuntimeError when there is none
-secret_set('JWT_SCRT', 'abc123', save=True)  # also plaintext .env and os.environ; UserWarning when the keychain failed
+secret_set('JWT_SCRT', 'abc123')      # OS keychain; with none, the 0600 .env file and a UserWarning
+secret_set('JWT_SCRT', 'abc123', save=True)  # also the .env file and os.environ
+# both return where the value went: {'keychain': True, 'file': None}
 
 print(env_get('VPS_IP'))
 print(secret_get('JWT_SCRT'))

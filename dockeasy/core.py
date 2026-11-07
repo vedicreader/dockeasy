@@ -405,13 +405,18 @@ def detect_app(path='.', multistage=True, **kw):
 FASTOPS_ENV = Path.home() / '.config' / 'fastops' / '.env'
 _FASTOPS_ENV = FASTOPS_ENV
 
-def env_set(key, value, path=None):
-    'Save `key=value` in the fastops .env file, or the file at `path`, and in `os.environ`.'
+def _env_write(key, value, path=None):
+    'Write `key=value` to the fastops .env file, or the file at `path`, creating it with mode 0600; return its path.'
     from dotenv import get_key, set_key
     p = Path(path or FASTOPS_ENV)
     p.parent.mkdir(parents=True, exist_ok=True)
     if not p.exists(): os.close(os.open(p, os.O_CREAT | os.O_WRONLY, 0o600))
     if get_key(str(p), key) != str(value): set_key(str(p), key, str(value))
+    return p
+
+def env_set(key, value, path=None):
+    'Save `key=value` in the fastops .env file, or the file at `path`, and in `os.environ`.'
+    _env_write(key, value, path)
     os.environ[key] = str(value)
 
 def env_get(key, path=None, default=None):
@@ -423,14 +428,14 @@ def env_get(key, path=None, default=None):
 
 # %% ../nbs/00_core.ipynb #f98d154fe212c161
 def secret_set(key, value, service='fastops', save=False, path=None):
-	'Store a secret in the system keychain; with `save=True` also in the .env file and `os.environ`, warning when that file holds the only copy; raises `RuntimeError` if nothing stored it.'
+	'Store a secret in the keychain, or in the 0600 .env file when there is none; `save=True` also writes the file and `os.environ`. Return where it went.'
 	try: keyring.set_password(service, key, value); stored = True
-	except Exception as e: stored, err = False, e
-	if save:
-		if not stored: warnings.warn(f'No keychain available to store {key!r}; saving it in plaintext in {Path(path or FASTOPS_ENV)}', stacklevel=2)
-		env_set(key, value, path=path)
-	elif not stored: raise RuntimeError(f'No keychain available to store {key!r}; pass save=True to write it in plaintext to the .env file') from err
-	return True
+	except Exception: stored = False
+	p = Path(path or FASTOPS_ENV)
+	if not stored: warnings.warn(f'No keychain available to store {key!r}; saving it in plaintext in {p}', stacklevel=2)
+	if save or not stored: _env_write(key, value, p).chmod(0o600)
+	if save: os.environ[key] = str(value)
+	return dict(keychain=stored, file=str(p) if save or not stored else None)
 
 def secret_get(key, service='fastops', default=None, path=None):
 	'Read a secret from the keychain, then `os.environ`, then the .env file, and return `default` if none has it.'

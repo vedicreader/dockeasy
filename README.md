@@ -390,7 +390,7 @@ print(env_get('APP_NAME'))
     1.2.3.4
     my-app
 
-[`secret_set`](https://vedicreader.github.io/dockeasy/core.html#secret_set) is for sensitive values. It stores the value in the system keychain through the `keyring` package, such as the macOS Keychain, and raises `RuntimeError` on a machine with no keychain, as on most servers. Pass `save=True` to also write the value, in plain text, to the same `.env` file and to `os.environ`. With `save=True` and no keychain, [`secret_set`](https://vedicreader.github.io/dockeasy/core.html#secret_set) warns that the `.env` file holds the only copy and writes it. [`secret_get`](https://vedicreader.github.io/dockeasy/core.html#secret_get) looks in the keychain first, then `os.environ`, then the file, and returns `default` if none of them has the key.
+[`secret_set`](https://vedicreader.github.io/dockeasy/core.html#secret_set) is for sensitive values. It stores the value in the system keychain through the `keyring` package, such as the macOS Keychain or the Secret Service on Linux. On a machine with no keychain, as on most servers, it writes the value in plain text to the same `.env` file, sets the file mode to `0600`, and issues a warning that names the file. It returns where the value went, as `{'keychain': ..., 'file': ...}`. Pass `save=True` to also write the value to the `.env` file and to `os.environ` when the keychain works. [`secret_get`](https://vedicreader.github.io/dockeasy/core.html#secret_get) looks in the keychain first, then `os.environ`, then the file, and returns `default` if none of them has the key.
 
 ``` python
 secret_set('FOO', 'bar', save=True)
